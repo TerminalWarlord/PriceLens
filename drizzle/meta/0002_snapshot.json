@@ -1,6 +1,6 @@
 {
-	"id": "8c554380-7ff9-4870-a678-2b633d3b64f5",
-	"prevId": "00000000-0000-0000-0000-000000000000",
+	"id": "69ff2ecc-245d-40ee-9e98-e1a1aa39da16",
+	"prevId": "157c6686-ff06-4408-aa5c-d15bb61b7604",
 	"version": "7",
 	"dialect": "postgresql",
 	"tables": {
@@ -14,15 +14,15 @@
 					"primaryKey": true,
 					"notNull": true,
 					"identity": {
-						"type": "always",
 						"name": "product_prices_id_seq",
-						"schema": "public",
 						"increment": "1",
-						"startWith": "1",
 						"minValue": "1",
 						"maxValue": "2147483647",
+						"startWith": "1",
 						"cache": "1",
-						"cycle": false
+						"cycle": false,
+						"schema": "public",
+						"type": "always"
 					}
 				},
 				"product_id": {
@@ -68,11 +68,11 @@
 				"product_prices_product_id_products_id_fk": {
 					"name": "product_prices_product_id_products_id_fk",
 					"tableFrom": "product_prices",
-					"tableTo": "products",
 					"columnsFrom": ["product_id"],
+					"tableTo": "products",
 					"columnsTo": ["id"],
-					"onDelete": "cascade",
-					"onUpdate": "no action"
+					"onUpdate": "no action",
+					"onDelete": "cascade"
 				}
 			},
 			"compositePrimaryKeys": {},
@@ -91,15 +91,15 @@
 					"primaryKey": true,
 					"notNull": true,
 					"identity": {
-						"type": "always",
 						"name": "products_id_seq",
-						"schema": "public",
 						"increment": "1",
-						"startWith": "1",
 						"minValue": "1",
 						"maxValue": "2147483647",
+						"startWith": "1",
 						"cache": "1",
-						"cycle": false
+						"cycle": false,
+						"schema": "public",
+						"type": "always"
 					}
 				},
 				"product_name": {
@@ -156,7 +156,13 @@
 			"indexes": {},
 			"foreignKeys": {},
 			"compositePrimaryKeys": {},
-			"uniqueConstraints": {},
+			"uniqueConstraints": {
+				"provider_url_unique": {
+					"name": "provider_url_unique",
+					"columns": ["product_provider", "product_url"],
+					"nullsNotDistinct": false
+				}
+			},
 			"policies": {},
 			"checkConstraints": {},
 			"isRLSEnabled": false
@@ -170,10 +176,10 @@
 		}
 	},
 	"schemas": {},
+	"views": {},
 	"sequences": {},
 	"roles": {},
 	"policies": {},
-	"views": {},
 	"_meta": {
 		"columns": {},
 		"schemas": {},
