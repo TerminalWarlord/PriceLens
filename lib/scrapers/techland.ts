@@ -4,27 +4,28 @@ import { db } from "../db";
 import { productsTable } from "../../src/db/schema/products";
 import { and, eq } from "drizzle-orm";
 import { ProductProvider } from "../../types/product_type";
-import { productPricesTable } from "../../src/db/schema/product_prices";
 import { MAX_ITEM_LIMIT } from "./scraper_config";
+import { uploadImage } from "../r2/upload_image";
+import { productPricesTable } from "../../src/db/schema/product_prices";
 
-export async function processProductUrl(product_url: string) {
-	const r = await proxyRequest(product_url);
+export async function processProductUrl(productUrl: string) {
+	const r = await proxyRequest(productUrl);
 	const $ = cheerio.load(await r.data);
-	const product_image = $(".container").find("#main-image").attr("src");
-	const product_name = $(".container .order-1")
+	const productImage = $(".container").find("#main-image").attr("src");
+	const productName = $(".container .order-1")
 		.find(".break-words")
 		.eq(0)
 		.text()
 		.trim();
-	let product_description = "";
+	let productDescription = "";
 	for (const el of $(".container .order-1")
 		.find(".break-words")
 		.eq(1)
 		.children()
 		.toArray()) {
-		product_description += $(el).text().trim() + "\n";
+		productDescription += $(el).text().trim() + "\n";
 	}
-	const product_price =
+	const productPrice =
 		Number(
 			$(".container .order-1")
 				.find(
@@ -35,15 +36,14 @@ export async function processProductUrl(product_url: string) {
 				.replace(/৳/g, "")
 				.replace(/,/g, ""),
 		) * 100;
-	console.log(product_name, product_price);
+	console.log(productName, productPrice);
 
 	if (
-		!product_name ||
-		!product_image ||
-		!product_description ||
-		!product_name ||
-		!product_url ||
-		isNaN(product_price)
+		!productName ||
+		!productImage ||
+		!productDescription ||
+		!productUrl ||
+		isNaN(productPrice)
 	) {
 		return;
 	}
@@ -52,30 +52,34 @@ export async function processProductUrl(product_url: string) {
 		.from(productsTable)
 		.where(
 			and(
-				eq(productsTable.product_url, product_url),
+				eq(productsTable.product_url, productUrl),
 				eq(productsTable.product_provider, ProductProvider.TECHLAND),
 			),
 		);
 	if (item && item.length) {
 		return;
 	}
-	console.info(`Adding ${product_url}...`);
+	console.info(`Adding ${productUrl}...`);
+	const uploadedImagePath = await uploadImage(
+		productImage,
+		ProductProvider.TECHLAND,
+	);
 	const [result] = await db
 		.insert(productsTable)
 		.values({
-			product_name,
-			product_url,
-			product_price,
-			product_description,
-			product_image,
+			product_name: productName,
+			product_price: productPrice,
+			product_description: productDescription.trim(),
+			product_image: uploadedImagePath,
+			product_url: productUrl,
 			product_provider: ProductProvider.TECHLAND,
 		})
 		.returning({ id: productsTable.id });
 
 	await db.insert(productPricesTable).values({
-		name: product_name,
-		description: product_description,
-		price: product_price,
+		name: productName,
+		description: productDescription.trim(),
+		price: productPrice,
 		product_id: result.id,
 		provider: ProductProvider.TECHLAND,
 	});

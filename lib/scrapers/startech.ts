@@ -3,14 +3,19 @@ import { Method, proxyRequest } from "../utils/proxy_request";
 import { db } from "../db";
 import { productsTable } from "../../src/db/schema/products";
 import { ProductProvider } from "../../types/product_type";
-import { productPricesTable } from "../../src/db/schema/product_prices";
 import { and, eq } from "drizzle-orm";
 import { MAX_PAGE_LIMIT } from "./scraper_config";
+import { uploadImage } from "../r2/upload_image";
+import { productPricesTable } from "../../src/db/schema/product_prices";
 
 export async function getStartechProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		console.info(`Scraping page ${page}/${MAX_PAGE_LIMIT}...`);
-		const r = await proxyRequest(url + `?page=${page}`, Method.GET);
+		// filter_status=7 -> only shows in stock items
+		const r = await proxyRequest(
+			url + `?page=${page}&filter_status=7`,
+			Method.GET,
+		);
 		const data = await r.data;
 		const $ = cheerio.load(data);
 		const items = $(".container").find(".p-item");
@@ -18,15 +23,15 @@ export async function getStartechProductDetails(url: string) {
 		if (items.length === 0) return;
 		for (const el of items.children().toArray()) {
 			try {
-				const product_image = $(el).find("img").attr("src");
-				const product_description = $(el)
+				const productImage = $(el).find("img").attr("src");
+				const productDescription = $(el)
 					.find(".short-description")
 					.text()
 					.trim();
-				const product_name = $(el).find(".p-item-name").find("a").text();
-				const product_url = $(el).find(".p-item-name").find("a").attr("href");
+				const productName = $(el).find(".p-item-name").find("a").text();
+				const productUrl = $(el).find(".p-item-name").find("a").attr("href");
 				// convert to paisa
-				const product_price =
+				const productPrice =
 					Number(
 						$(el)
 							.find(".p-item-price")
@@ -38,12 +43,11 @@ export async function getStartechProductDetails(url: string) {
 							.replace(/,/g, ""),
 					) * 100;
 				if (
-					!product_name ||
-					!product_image ||
-					!product_description ||
-					!product_name ||
-					!product_url ||
-					isNaN(product_price)
+					!productName ||
+					!productImage ||
+					!productDescription ||
+					!productUrl ||
+					isNaN(productPrice)
 				) {
 					continue;
 				}
@@ -52,29 +56,33 @@ export async function getStartechProductDetails(url: string) {
 					.from(productsTable)
 					.where(
 						and(
-							eq(productsTable.product_url, product_url),
+							eq(productsTable.product_url, productUrl),
 							eq(productsTable.product_provider, ProductProvider.STARTECH),
 						),
 					);
 				if (item && item.length) {
 					continue;
 				}
+				const uploadedImagePath = await uploadImage(
+					productImage,
+					ProductProvider.STARTECH,
+				);
 				const [result] = await db
 					.insert(productsTable)
 					.values({
-						product_name,
-						product_url,
-						product_price,
-						product_description,
-						product_image,
+						product_name: productName,
+						product_url: productUrl,
+						product_price: productPrice,
+						product_description: productDescription,
+						product_image: uploadedImagePath,
 						product_provider: ProductProvider.STARTECH,
 					})
 					.returning({ id: productsTable.id });
 
 				await db.insert(productPricesTable).values({
-					name: product_name,
-					description: product_description,
-					price: product_price,
+					name: productName,
+					description: productDescription,
+					price: productPrice,
 					product_id: result.id,
 					provider: ProductProvider.STARTECH,
 				});
@@ -86,7 +94,7 @@ export async function getStartechProductDetails(url: string) {
 	}
 }
 
-export async function getStartechCategories() {
+export async function scrapeStartechCategories() {
 	const url = "https://www.startech.com.bd/";
 	const r = await proxyRequest(url, Method.GET);
 	const data = await r.data;
@@ -95,8 +103,7 @@ export async function getStartechCategories() {
 	for (const el of allMenu.toArray()) {
 		const navLink = $(el).children("a.nav-link").attr("href");
 		console.info(`Scraping : ${navLink}`);
-		if (!navLink) return;
+		if (!navLink) continue;
 		await getStartechProductDetails(navLink);
-		return;
 	}
 }

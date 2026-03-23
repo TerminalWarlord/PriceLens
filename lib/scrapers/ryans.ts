@@ -8,6 +8,7 @@ import { ProductProvider } from "../../types/product_type";
 import { db } from "../db";
 import { productPricesTable } from "../../src/db/schema/product_prices";
 import { MAX_ITEM_LIMIT, MAX_PAGE_LIMIT } from "./scraper_config";
+import { uploadImage } from "../r2/upload_image";
 
 chromium.use(stealth());
 const browser = await chromium.launch({
@@ -35,21 +36,21 @@ export async function getRyansProductDetails(
 		const allMenu = $("div.card.h-100");
 		for (const el of allMenu.toArray()) {
 			try {
-				const product_url = $(el).find("div.image-box > a ").attr("href");
-				const product_image = $(el)
+				const productUrl = $(el).find("div.image-box > a ").attr("href");
+				const productImage = $(el)
 					.find("div.image-box > a > img")
 					.attr("src")
 					?.replace("/small/", "/medium/");
-				const product_name = $(el)
+				const productName = $(el)
 					.find("h4.product-name > a")
 					.text()
 					.split("...")[0]
 					.trim();
-				let product_description = "";
+				let productDescription = "";
 				for (const desc of $(el).find(".category-info").children().toArray()) {
-					product_description += $(desc).text().trim() + "\n";
+					productDescription += $(desc).text().trim() + "\n";
 				}
-				const product_price =
+				const productPrice =
 					Number(
 						$(el)
 							.find(".pr-text.cat-sp-text")
@@ -61,12 +62,11 @@ export async function getRyansProductDetails(
 					) * 100;
 
 				if (
-					!product_name ||
-					!product_image ||
-					!product_description ||
-					!product_name ||
-					!product_url ||
-					isNaN(product_price)
+					!productName ||
+					!productImage ||
+					!productDescription ||
+					!productUrl ||
+					isNaN(productPrice)
 				) {
 					continue;
 				}
@@ -75,29 +75,34 @@ export async function getRyansProductDetails(
 					.from(productsTable)
 					.where(
 						and(
-							eq(productsTable.product_url, product_url),
+							eq(productsTable.product_url, productUrl),
 							eq(productsTable.product_provider, ProductProvider.RYANS),
 						),
 					);
 				if (item && item.length) {
 					continue;
 				}
+				const uploadedImagePath = await uploadImage(
+					productImage,
+					ProductProvider.RYANS,
+				);
+
 				const [result] = await db
 					.insert(productsTable)
 					.values({
-						product_name,
-						product_url,
-						product_price,
-						product_description,
-						product_image,
+						product_name: productName,
+						product_url: productUrl,
+						product_price: productPrice,
+						product_description: productDescription.trim(),
+						product_image: uploadedImagePath,
 						product_provider: ProductProvider.RYANS,
 					})
 					.returning({ id: productsTable.id });
 
 				await db.insert(productPricesTable).values({
-					name: product_name,
-					description: product_description,
-					price: product_price,
+					name: productName,
+					description: productDescription,
+					price: productPrice,
 					product_id: result.id,
 					provider: ProductProvider.RYANS,
 				});
@@ -109,7 +114,7 @@ export async function getRyansProductDetails(
 	}
 }
 
-export async function getRyansCategories() {
+export async function scrapeRyansCategories() {
 	const context = await browser.newContext({
 		userAgent:
 			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
