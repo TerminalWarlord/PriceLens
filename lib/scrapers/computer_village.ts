@@ -69,7 +69,7 @@ export async function getComputerVillageProductDetails(url: string) {
 						product_name: productName,
 						product_url: productUrl,
 						product_price: productPrice,
-						product_description: productDescription,
+						product_description: productDescription.trim(),
 						product_image: uploadedImagePath,
 						product_provider: ProductProvider.COMPUTER_VILLAGE,
 					})
@@ -77,7 +77,7 @@ export async function getComputerVillageProductDetails(url: string) {
 
 				await db.insert(productPricesTable).values({
 					name: productName,
-					description: productDescription,
+					description: productDescription.trim(),
 					price: productPrice,
 					product_id: result.id,
 					provider: ProductProvider.COMPUTER_VILLAGE,

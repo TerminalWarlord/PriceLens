@@ -101,7 +101,7 @@ export async function getRyansProductDetails(
 
 				await db.insert(productPricesTable).values({
 					name: productName,
-					description: productDescription,
+					description: productDescription.trim(),
 					price: productPrice,
 					product_id: result.id,
 					provider: ProductProvider.RYANS,
