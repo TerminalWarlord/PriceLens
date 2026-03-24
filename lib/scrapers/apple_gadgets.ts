@@ -125,11 +125,14 @@ export async function scrapeAppleGadgetsCategories() {
 	const r = await proxyRequest("https://www.applegadgetsbd.com/");
 	const $ = cheerio.load(await r.data);
 	const navLinks = [];
-	for (const el of $("nav").find("a").toArray()) {
+	for (const el of $("a").toArray()) {
 		const navLink = BASE_URL + $(el).attr("href");
 		if (!navLink) continue;
-		navLinks.push(navLink);
+		if (navLink.includes("/category/") || navLink.includes("/brand/")) {
+			navLinks.push(navLink);
+		}
 	}
+	consoleSuccess(ProductProvider.APPLE_GADGETS, `navLinks: ${navLinks}`);
 	await Promise.all(
 		navLinks.map((navLink) =>
 			limit(async () => {
