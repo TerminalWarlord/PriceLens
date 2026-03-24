@@ -1,2 +1,2 @@
-export const MAX_PAGE_LIMIT = 2;
-export const MAX_ITEM_LIMIT = 5000;
+export const MAX_PAGE_LIMIT = process.env.MAX_PAGE_LIMIT;
+export const MAX_ITEM_LIMIT = process.env.MAX_ITEM_LIMIT;
