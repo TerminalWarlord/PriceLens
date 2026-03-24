@@ -12,6 +12,6 @@ app.get("/search", getSearchController);
 app.get("/", (c) => c.text("Hono!"));
 
 Bun.serve({
-	port: 3000,
+	port: process.env.PORT,
 	fetch: app.fetch,
 });
