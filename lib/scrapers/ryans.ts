@@ -35,6 +35,7 @@ export async function getRyansProductDetails(
 			const data = await page.content();
 			const $ = cheerio.load(data);
 			const allMenu = $("div.card.h-100");
+			if (!allMenu.length) break;
 			for (const el of allMenu.toArray()) {
 				try {
 					const productUrl = $(el).find("div.image-box > a ").attr("href");
