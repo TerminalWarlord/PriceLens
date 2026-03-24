@@ -45,7 +45,7 @@ jobs:
           ENVEOF
 
             # Run Meilisearch server using docker-compose.yml
-            docker-compose up -d --build
+            docker compose up -d --build
 
             # Install packages
             ~/.bun/bin/bun i
