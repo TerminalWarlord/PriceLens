@@ -2,6 +2,14 @@
 
 Pricelens is a hobby projects that scrapes tech products and their prices from multiple Bangladeshi retailers (startech, ryans, techland etc.) for you to compare the best deal.
 
+<p align="center">
+  <a href="https://skillicons.dev">
+    <img src="https://skillicons.dev/icons?i=bun,cloudflare,postgres,redis" />
+  </a>
+</p>
+
+[![Hono](https://img.shields.io/badge/Built%20with-Hono-orange?style=for-the-badge&logo=https://hono.dev/images/logo.svg&logoColor=white)](https://hono.dev)
+
 ## ✨ Features
 
 - 🔍 Scrapes product data from multiple tech stores
