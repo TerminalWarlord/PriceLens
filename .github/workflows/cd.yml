@@ -45,18 +45,12 @@ jobs:
           ENVEOF
 
             # Install packages
-            bun i
-
-            # Load NVM and Node
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm use 22
-
+            ~/.bun/bin/bun i
 
             if pm2 list | grep -Eq 'pricelens_backend'; then
               pm2 restart pricelens_backend --update-env
             else
-              pm2 start bun --name pricelens_backend -- run index.ts
+              pm2 start ~/.bun/bin/bun --name pricelens_backend -- run index.ts
             fi
             pm2 save
           EOF
