@@ -23,95 +23,102 @@ export async function getRyansProductDetails(
 	// https://www.ryans.com/category/laptop-all-laptop?limit=5000&sort=D&osp=1&st=0
 	const page = await browserContext.newPage();
 	for (let p = 1; p < MAX_PAGE_LIMIT; p++) {
-		await page.goto(`${url}?limit=${MAX_ITEM_LIMIT}&page=${p}`, {
-			waitUntil: "domcontentloaded",
-		});
+		try {
+			await page.goto(`${url}?limit=${MAX_ITEM_LIMIT}&page=${p}`, {
+				waitUntil: "domcontentloaded",
+			});
 
-		// give CF time
-		await page.waitForTimeout(6000);
+			// give CF time
+			await page.waitForTimeout(6000);
 
-		console.log(await page.title());
-		const data = await page.content();
-		const $ = cheerio.load(data);
-		const allMenu = $("div.card.h-100");
-		for (const el of allMenu.toArray()) {
-			try {
-				const productUrl = $(el).find("div.image-box > a ").attr("href");
-				const productImage = $(el)
-					.find("div.image-box > a > img")
-					.attr("src")
-					?.replace("/small/", "/medium/");
-				const productName = $(el)
-					.find("h4.product-name > a")
-					.text()
-					.split("...")[0]
-					.trim();
-				let productDescription = "";
-				for (const desc of $(el).find(".category-info").children().toArray()) {
-					productDescription += $(desc).text().trim() + "\n";
-				}
-				const productPrice =
-					Number(
-						$(el)
-							.find(".pr-text.cat-sp-text")
-							.text()
-							.trim()
-							.replace("Tk", "")
-							.replace(/,/g, "")
-							.trim(),
-					) * 100;
+			console.log(await page.title());
+			const data = await page.content();
+			const $ = cheerio.load(data);
+			const allMenu = $("div.card.h-100");
+			for (const el of allMenu.toArray()) {
+				try {
+					const productUrl = $(el).find("div.image-box > a ").attr("href");
+					const productImage = $(el)
+						.find("div.image-box > a > img")
+						.attr("src")
+						?.replace("/small/", "/medium/");
+					const productName = $(el)
+						.find("h4.product-name > a")
+						.text()
+						.split("...")[0]
+						.trim();
+					let productDescription = "";
+					for (const desc of $(el)
+						.find(".category-info")
+						.children()
+						.toArray()) {
+						productDescription += $(desc).text().trim() + "\n";
+					}
+					const productPrice =
+						Number(
+							$(el)
+								.find(".pr-text.cat-sp-text")
+								.text()
+								.trim()
+								.replace("Tk", "")
+								.replace(/,/g, "")
+								.trim(),
+						) * 100;
 
-				if (
-					!productName ||
-					!productImage ||
-					!productDescription ||
-					!productUrl ||
-					isNaN(productPrice)
-				) {
-					continue;
-				}
-				const item = await db
-					.select()
-					.from(productsTable)
-					.where(
-						and(
-							eq(productsTable.product_url, productUrl),
-							eq(productsTable.product_provider, ProductProvider.RYANS),
-						),
+					if (
+						!productName ||
+						!productImage ||
+						!productDescription ||
+						!productUrl ||
+						isNaN(productPrice)
+					) {
+						continue;
+					}
+					const item = await db
+						.select()
+						.from(productsTable)
+						.where(
+							and(
+								eq(productsTable.product_url, productUrl),
+								eq(productsTable.product_provider, ProductProvider.RYANS),
+							),
+						);
+					if (item && item.length) {
+						continue;
+					}
+					const uploadedImagePath = await uploadImage(
+						productImage,
+						ProductProvider.RYANS,
 					);
-				if (item && item.length) {
-					continue;
+
+					const [result] = await db
+						.insert(productsTable)
+						.values({
+							product_name: productName,
+							product_url: productUrl,
+							product_price: productPrice,
+							product_description: productDescription.trim(),
+							product_image: uploadedImagePath,
+							product_provider: ProductProvider.RYANS,
+						})
+						.returning({ id: productsTable.id });
+
+					await db.insert(productPricesTable).values({
+						name: productName,
+						description: productDescription.trim(),
+						price: productPrice,
+						product_id: result.id,
+						provider: ProductProvider.RYANS,
+					});
+				} catch (err) {
+					console.error(err);
 				}
-				const uploadedImagePath = await uploadImage(
-					productImage,
-					ProductProvider.RYANS,
-				);
-
-				const [result] = await db
-					.insert(productsTable)
-					.values({
-						product_name: productName,
-						product_url: productUrl,
-						product_price: productPrice,
-						product_description: productDescription.trim(),
-						product_image: uploadedImagePath,
-						product_provider: ProductProvider.RYANS,
-					})
-					.returning({ id: productsTable.id });
-
-				await db.insert(productPricesTable).values({
-					name: productName,
-					description: productDescription.trim(),
-					price: productPrice,
-					product_id: result.id,
-					provider: ProductProvider.RYANS,
-				});
-			} catch (err) {
-				console.error(err);
 			}
+		} catch (err) {
+			console.error(`Ryans: Failed at page ${p}: ${err}`);
 		}
-		await page.close();
 	}
+	await page.close();
 }
 
 export async function scrapeRyansCategories() {
@@ -132,20 +139,20 @@ export async function scrapeRyansCategories() {
 	await page.waitForTimeout(6000);
 
 	console.log(await page.title());
-	// await browser.close();
 	const data = await page.content();
 	const $ = cheerio.load(data);
 	const allMenu = $("ul.list-unstyled");
 	for (const el of allMenu.toArray()) {
 		const navLink = $(el).children();
-
 		for (const li of navLink.toArray()) {
 			const item = $(li).find("a").attr("href");
 			if (!item || item === "#") continue;
-			console.log(item);
-			console.info(`Scraping : ${item}`);
-			await getRyansProductDetails(item, context);
-			// return
+			try {
+				console.info(`Scraping : ${item}`);
+				await getRyansProductDetails(item, context);
+			} catch (err) {
+				console.error(`Failed to scrape ${item} : ${err}`);
+			}
 		}
 	}
 	await page.close();
