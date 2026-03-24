@@ -72,6 +72,7 @@ export async function getStartechProductDetails(url: string) {
 						),
 					);
 				if (item && item.length) {
+					consoleError(ProductProvider.STARTECH, `Item Exists : ${productUrl}`);
 					continue;
 				}
 				consoleLogProduct(ProductProvider.STARTECH, {
@@ -116,10 +117,9 @@ export async function scrapeStartechCategories() {
 	const r = await proxyRequest(url, Method.GET);
 	const data = await r.data;
 	const $ = cheerio.load(data);
-	const allMenu = $("ul.navbar-nav > li.nav-item");
 	const navLinks = [];
-	for (const el of allMenu.toArray()) {
-		const navLink = $(el).children("a.nav-link").attr("href");
+	for (const el of $("a.nav-link").toArray()) {
+		const navLink = $(el).attr("href");
 		if (!navLink) continue;
 		navLinks.push(navLink);
 	}
