@@ -7,10 +7,19 @@ import { and, eq } from "drizzle-orm";
 import { MAX_PAGE_LIMIT } from "./scraper_config";
 import { uploadImage } from "../r2/upload_image";
 import { productPricesTable } from "../../src/db/schema/product_prices";
+import {
+	consoleError,
+	consoleInfo,
+	consoleLogProduct,
+	consoleSuccess,
+} from "./debugger";
 
 export async function getStartechProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
-		console.info(`Scraping page ${page}/${MAX_PAGE_LIMIT}...`);
+		consoleInfo(
+			ProductProvider.STARTECH,
+			`Scraping page ${page}/${MAX_PAGE_LIMIT}...`,
+		);
 		// filter_status=7 -> only shows in stock items
 		const r = await proxyRequest(
 			url + `?page=${page}&filter_status=7`,
@@ -63,6 +72,12 @@ export async function getStartechProductDetails(url: string) {
 				if (item && item.length) {
 					continue;
 				}
+				consoleLogProduct(ProductProvider.STARTECH, {
+					name: productName,
+					description: productDescription,
+					image: productImage,
+					price: productPrice,
+				});
 				const uploadedImagePath = await uploadImage(
 					productImage,
 					ProductProvider.STARTECH,
@@ -86,11 +101,11 @@ export async function getStartechProductDetails(url: string) {
 					product_id: result.id,
 					provider: ProductProvider.STARTECH,
 				});
+				consoleSuccess(ProductProvider.STARTECH, `Added ${productUrl}`);
 			} catch (err) {
-				console.error(err);
+				consoleError(ProductProvider.STARTECH, `Failed to scrape: ${err}`);
 			}
 		}
-		console.log(items.length);
 	}
 }
 
@@ -100,10 +115,16 @@ export async function scrapeStartechCategories() {
 	const data = await r.data;
 	const $ = cheerio.load(data);
 	const allMenu = $("ul.navbar-nav > li.nav-item");
+	const navLinks = [];
 	for (const el of allMenu.toArray()) {
 		const navLink = $(el).children("a.nav-link").attr("href");
-		console.info(`Scraping : ${navLink}`);
 		if (!navLink) continue;
-		await getStartechProductDetails(navLink);
+		navLinks.push(navLink);
 	}
+	await Promise.all(
+		navLinks.map(async (navLink) => {
+			consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
+			await getStartechProductDetails(navLink);
+		}),
+	);
 }

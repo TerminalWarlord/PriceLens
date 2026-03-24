@@ -9,6 +9,12 @@ import { db } from "../db";
 import { productPricesTable } from "../../src/db/schema/product_prices";
 import { MAX_ITEM_LIMIT, MAX_PAGE_LIMIT } from "./scraper_config";
 import { uploadImage } from "../r2/upload_image";
+import {
+	consoleError,
+	consoleInfo,
+	consoleLogProduct,
+	consoleSuccess,
+} from "./debugger";
 
 chromium.use(stealth());
 const browser = await chromium.launch({
@@ -31,7 +37,7 @@ export async function getRyansProductDetails(
 			// give CF time
 			await page.waitForTimeout(6000);
 
-			console.log(await page.title());
+			consoleInfo(ProductProvider.RYANS, await page.title());
 			const data = await page.content();
 			const $ = cheerio.load(data);
 			const allMenu = $("div.card.h-100");
@@ -91,6 +97,12 @@ export async function getRyansProductDetails(
 						productImage,
 						ProductProvider.RYANS,
 					);
+					consoleLogProduct(ProductProvider.RYANS, {
+						name: productName,
+						description: productDescription.trim(),
+						image: productImage,
+						price: productPrice,
+					});
 
 					const [result] = await db
 						.insert(productsTable)
@@ -111,12 +123,13 @@ export async function getRyansProductDetails(
 						product_id: result.id,
 						provider: ProductProvider.RYANS,
 					});
+					consoleSuccess(ProductProvider.RYANS, `Added ${productUrl}`);
 				} catch (err) {
-					console.error(err);
+					consoleError(ProductProvider.RYANS, `Failed to scrape : ${err}`);
 				}
 			}
 		} catch (err) {
-			console.error(`Ryans: Failed at page ${p}: ${err}`);
+			consoleError(ProductProvider.RYANS, `Failed at page ${p}: ${err}`);
 		}
 	}
 	await page.close();
@@ -139,7 +152,7 @@ export async function scrapeRyansCategories() {
 	// give CF time
 	await page.waitForTimeout(6000);
 
-	console.log(await page.title());
+	consoleInfo(ProductProvider.RYANS, await page.title());
 	const data = await page.content();
 	const $ = cheerio.load(data);
 	const allMenu = $("ul.list-unstyled");
@@ -149,10 +162,13 @@ export async function scrapeRyansCategories() {
 			const item = $(li).find("a").attr("href");
 			if (!item || item === "#") continue;
 			try {
-				console.info(`Scraping : ${item}`);
+				consoleInfo(ProductProvider.RYANS, `Scraping : ${item}`);
 				await getRyansProductDetails(item, context);
 			} catch (err) {
-				console.error(`Failed to scrape ${item} : ${err}`);
+				consoleError(
+					ProductProvider.RYANS,
+					`Failed to scrape ${item} : ${err}`,
+				);
 			}
 		}
 	}

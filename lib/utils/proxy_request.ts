@@ -15,6 +15,7 @@ export async function proxyRequest(url: string, method: Method = Method.GET) {
 		method: method,
 		httpsAgent: agent,
 		proxy: false,
+		validateStatus: () => true,
 	});
 	return res;
 }

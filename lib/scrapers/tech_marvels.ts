@@ -7,6 +7,12 @@ import { ProductProvider } from "../../types/product_type";
 import { productPricesTable } from "../../src/db/schema/product_prices";
 import { MAX_PAGE_LIMIT } from "./scraper_config";
 import { uploadImage } from "../r2/upload_image";
+import {
+	consoleError,
+	consoleInfo,
+	consoleLogProduct,
+	consoleSuccess,
+} from "./debugger";
 
 export async function processProductUrl(productUrl: string) {
 	try {
@@ -26,10 +32,9 @@ export async function processProductUrl(productUrl: string) {
 			) * 100;
 		const isOutOfStock = $(".stock.out-of-stock.wd-style-bordered");
 		if (isOutOfStock.length) {
-			console.info(`Stock out ${productUrl}`);
+			consoleError(ProductProvider.TECH_MARVELS, `Stock out ${productUrl}`);
 			return;
 		}
-		console.log(productName, productImage, productDescription, productPrice);
 		if (
 			!productName ||
 			!productImage ||
@@ -39,6 +44,12 @@ export async function processProductUrl(productUrl: string) {
 		) {
 			return;
 		}
+		consoleLogProduct(ProductProvider.TECH_MARVELS, {
+			name: productName,
+			description: productDescription.trim(),
+			image: productImage,
+			price: productPrice,
+		});
 		const item = await db
 			.select()
 			.from(productsTable)
@@ -75,16 +86,19 @@ export async function processProductUrl(productUrl: string) {
 			provider: ProductProvider.TECH_MARVELS,
 		});
 	} catch (err) {
-		console.error(`Failed to process ${productUrl}: ${err}`);
+		consoleError(
+			ProductProvider.TECH_MARVELS,
+			`Failed to process ${productUrl}: ${err}`,
+		);
 	}
 }
 
 export async function getTechMarvelsProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		const newUrl = `${url}page/${page}/?per_page=50`;
-		console.info(`Page : ${page}`);
+		consoleInfo(ProductProvider.TECH_MARVELS, `Page : ${page}`);
 		try {
-			console.info(`Scraping : ${newUrl}`);
+			consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${newUrl}`);
 			const r = await proxyRequest(newUrl);
 			if (r.status >= 400) break;
 			const $ = cheerio.load(await r.data);
@@ -92,11 +106,17 @@ export async function getTechMarvelsProductDetails(url: string) {
 			for (const el of $(".product-wrapper").toArray()) {
 				const productUrl = $(el).find("a").attr("href");
 				if (!productUrl) continue;
-				console.log(`Getting details for : ${productUrl}`);
+				consoleInfo(
+					ProductProvider.TECH_MARVELS,
+					`[TECH MARVELS] Getting details for : ${productUrl}`,
+				);
 				await processProductUrl(productUrl);
 			}
 		} catch (err) {
-			console.error(`Failed to scrape page ${page}: ${err}`);
+			consoleError(
+				ProductProvider.TECH_MARVELS,
+				`Failed to scrape page ${page}: ${err}`,
+			);
 		}
 	}
 }
@@ -104,12 +124,22 @@ export async function getTechMarvelsProductDetails(url: string) {
 export async function scrapeTechMarvelsCategories() {
 	const r = await proxyRequest("https://techmarvels.com.bd/");
 	const $ = cheerio.load(await r.data);
+	const navLinks = [];
 	for (const el of $("#menu-sticky-navigation-mega-electronics")
 		.children()
 		.toArray()) {
 		const navLink = $(el).find("a").attr("href");
 		if (!navLink) continue;
-		await getTechMarvelsProductDetails(navLink);
-		console.info(`Scraping : ${navLink}`);
+		navLinks.push(navLink);
 	}
+	consoleSuccess(
+		ProductProvider.TECH_MARVELS,
+		`Scraped Categories: ${navLinks}`,
+	);
+	await Promise.all(
+		navLinks.map(async (navLink) => {
+			consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${navLink}`);
+			await getTechMarvelsProductDetails(navLink);
+		}),
+	);
 }

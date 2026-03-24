@@ -7,6 +7,12 @@ import { ProductProvider } from "../../types/product_type";
 import { MAX_ITEM_LIMIT } from "./scraper_config";
 import { uploadImage } from "../r2/upload_image";
 import { productPricesTable } from "../../src/db/schema/product_prices";
+import {
+	consoleError,
+	consoleInfo,
+	consoleLogProduct,
+	consoleSuccess,
+} from "./debugger";
 
 export async function processProductUrl(productUrl: string) {
 	const r = await proxyRequest(productUrl);
@@ -36,7 +42,6 @@ export async function processProductUrl(productUrl: string) {
 				.replace(/৳/g, "")
 				.replace(/,/g, ""),
 		) * 100;
-	console.log(productName, productPrice);
 
 	if (
 		!productName ||
@@ -47,6 +52,12 @@ export async function processProductUrl(productUrl: string) {
 	) {
 		return;
 	}
+	consoleLogProduct(ProductProvider.TECHLAND, {
+		name: productName,
+		description: productDescription.trim(),
+		image: productImage,
+		price: productPrice,
+	});
 	const item = await db
 		.select()
 		.from(productsTable)
@@ -57,9 +68,10 @@ export async function processProductUrl(productUrl: string) {
 			),
 		);
 	if (item && item.length) {
+		consoleInfo(ProductProvider.TECHLAND, "Item exists!");
 		return;
 	}
-	console.info(`Adding ${productUrl}...`);
+	consoleInfo(ProductProvider.TECHLAND, `Adding ${productUrl}...`);
 	const uploadedImagePath = await uploadImage(
 		productImage,
 		ProductProvider.TECHLAND,
@@ -83,13 +95,14 @@ export async function processProductUrl(productUrl: string) {
 		product_id: result.id,
 		provider: ProductProvider.TECHLAND,
 	});
+	consoleSuccess(ProductProvider.TECHLAND, `Added ${productUrl}`);
 }
 
 export async function getTechlandProductDetails(url: string) {
 	// https://www.techlandbd.com/shop-laptop-computer/brand-laptops
 	for (let page = 1; page < MAX_ITEM_LIMIT; page++) {
 		try {
-			console.info(`PAGE ${page}...`);
+			consoleInfo(ProductProvider.TECHLAND, `PAGE ${page}...`);
 			const r = await proxyRequest(url);
 			const $ = cheerio.load(await r.data);
 			const productUrls: string[] = [];
@@ -100,13 +113,17 @@ export async function getTechlandProductDetails(url: string) {
 			}
 			for (const productUrl of productUrls) {
 				try {
+					consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
 					await processProductUrl(productUrl);
 				} catch (err) {
-					console.error(`Failed to process ${productUrl} ${err}`);
+					consoleError(
+						ProductProvider.TECHLAND,
+						`Failed to process ${productUrl} ${err}`,
+					);
 				}
 			}
 		} catch (err) {
-			console.error(err);
+			consoleError(ProductProvider.TECHLAND, `Failed to scrape: ${err}`);
 		}
 	}
 }
@@ -117,10 +134,23 @@ export async function scrapeTechlandCategories() {
 	);
 	const data = await r.data;
 	const $ = cheerio.load(data);
+	const navLinks = [];
 	for (const el of $("a").toArray()) {
 		const navLink = $(el).attr("href");
 		if (!navLink || navLink === "#") continue;
-		console.info(`Scraping ${navLink}...`);
-		await getTechlandProductDetails(navLink);
+		navLinks.push(navLink);
 	}
+	await Promise.all(
+		navLinks.map(async (navLink) => {
+			consoleInfo(ProductProvider.TECHLAND, `Scraping ${navLink}...`);
+			try {
+				await getTechlandProductDetails(navLink);
+			} catch (err) {
+				consoleError(
+					ProductProvider.TECHLAND,
+					`Failed to scrape ${navLink} : ${err}`,
+				);
+			}
+		}),
+	);
 }

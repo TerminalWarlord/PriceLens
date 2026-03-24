@@ -7,10 +7,17 @@ import { productPricesTable } from "../../src/db/schema/product_prices";
 import { db } from "../db";
 import { and, eq } from "drizzle-orm";
 import { uploadImage } from "../r2/upload_image";
+import {
+	consoleError,
+	consoleInfo,
+	consoleLogProduct,
+	consoleSuccess,
+} from "./debugger";
 
 export async function getComputerVillageProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		const r = await proxyRequest(`${url}?limit=200&page=${page}&fq=1`);
+		if (r.status >= 400) break;
 		const $ = cheerio.load(await r.data);
 		for (const el of $(".main-products.product-grid").children().toArray()) {
 			try {
@@ -34,7 +41,6 @@ export async function getComputerVillageProductDetails(url: string) {
 					productDescription += $(li).text() + "\n";
 				}
 				const productImage = $(el).find(".image img").attr("src");
-				console.log(productPrice, productImage);
 				if (
 					!productName ||
 					!productImage ||
@@ -44,6 +50,12 @@ export async function getComputerVillageProductDetails(url: string) {
 				) {
 					continue;
 				}
+				consoleLogProduct(ProductProvider.COMPUTER_VILLAGE, {
+					name: productName,
+					description: productDescription,
+					image: productImage,
+					price: productPrice,
+				});
 				const item = await db
 					.select()
 					.from(productsTable)
@@ -82,8 +94,12 @@ export async function getComputerVillageProductDetails(url: string) {
 					product_id: result.id,
 					provider: ProductProvider.COMPUTER_VILLAGE,
 				});
+				consoleSuccess(ProductProvider.COMPUTER_VILLAGE, `Added ${productUrl}`);
 			} catch (err) {
-				console.error(`Failed to store current item : ${err}`);
+				consoleError(
+					ProductProvider.COMPUTER_VILLAGE,
+					`Failed to store current item : ${err}`,
+				);
 			}
 		}
 	}
@@ -92,10 +108,16 @@ export async function getComputerVillageProductDetails(url: string) {
 export async function scrapeComputerVillageCategories() {
 	const r = await proxyRequest("https://www.computervillage.com.bd/");
 	const $ = cheerio.load(await r.data);
+	const navLinks = [];
 	for (const el of $(".main-menu .j-menu").children().toArray()) {
 		const navLink = $(el).find("a").attr("href");
 		if (!navLink) continue;
-		console.info(`Scraping : ${navLink}`);
-		await getComputerVillageProductDetails(navLink);
+		navLinks.push(navLink);
 	}
+	await Promise.all(
+		navLinks.map(async (navLink) => {
+			consoleInfo(ProductProvider.COMPUTER_VILLAGE, `Scraping : ${navLink}`);
+			await getComputerVillageProductDetails(navLink);
+		}),
+	);
 }
