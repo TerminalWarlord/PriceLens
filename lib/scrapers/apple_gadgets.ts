@@ -13,7 +13,9 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
+import pLimit from "p-limit";
 
+const limit = pLimit(3);
 const BASE_URL = "https://www.applegadgetsbd.com";
 
 async function processProductUrl(productUrl: string) {
@@ -99,17 +101,22 @@ export async function getAppleGadgetsProductDetails(url: string) {
 		}
 
 		await Promise.all(
-			productUrls.map(async (productUrl) => {
-				try {
-					consoleInfo(ProductProvider.APPLE_GADGETS, `Scraping: ${productUrl}`);
-					await processProductUrl(BASE_URL + productUrl);
-				} catch (err) {
-					consoleError(
-						ProductProvider.APPLE_GADGETS,
-						`Failed to scrape ${productUrl}: ${err}`,
-					);
-				}
-			}),
+			productUrls.map((productUrl) =>
+				limit(async () => {
+					try {
+						consoleInfo(
+							ProductProvider.APPLE_GADGETS,
+							`Scraping: ${productUrl}`,
+						);
+						await processProductUrl(BASE_URL + productUrl);
+					} catch (err) {
+						consoleError(
+							ProductProvider.APPLE_GADGETS,
+							`Failed to scrape ${productUrl}: ${err}`,
+						);
+					}
+				}),
+			),
 		);
 	}
 }
@@ -124,9 +131,18 @@ export async function scrapeAppleGadgetsCategories() {
 		navLinks.push(navLink);
 	}
 	await Promise.all(
-		navLinks.map(async (navLink) => {
-			consoleInfo(ProductProvider.APPLE_GADGETS, `Scraping : ${navLink}`);
-			await getAppleGadgetsProductDetails(navLink);
-		}),
+		navLinks.map((navLink) =>
+			limit(async () => {
+				try {
+					consoleInfo(ProductProvider.APPLE_GADGETS, `Scraping : ${navLink}`);
+					await getAppleGadgetsProductDetails(navLink);
+				} catch (err) {
+					consoleError(
+						ProductProvider.APPLE_GADGETS,
+						`Failed to scrape ${err}`,
+					);
+				}
+			}),
+		),
 	);
 }

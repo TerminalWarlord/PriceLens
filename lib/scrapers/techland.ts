@@ -7,6 +7,7 @@ import { ProductProvider } from "../../types/product_type";
 import { MAX_ITEM_LIMIT } from "./scraper_config";
 import { uploadImage } from "../r2/upload_image";
 import { productPricesTable } from "../../src/db/schema/product_prices";
+import pLimit from "p-limit";
 import {
 	consoleError,
 	consoleInfo,
@@ -14,9 +15,11 @@ import {
 	consoleSuccess,
 } from "./debugger";
 
+const limit = pLimit(3);
 export async function processProductUrl(productUrl: string) {
 	const r = await proxyRequest(productUrl);
 	const $ = cheerio.load(await r.data);
+	consoleInfo(ProductProvider.TECHLAND, `Getting product info: ${productUrl}`);
 	const productImage = $(".container").find("#main-image").attr("src");
 	const productName = $(".container .order-1")
 		.find(".break-words")
@@ -50,6 +53,7 @@ export async function processProductUrl(productUrl: string) {
 		!productUrl ||
 		isNaN(productPrice)
 	) {
+		consoleError(ProductProvider.TECHLAND, `Invalid data: ${productUrl}`);
 		return;
 	}
 	consoleLogProduct(ProductProvider.TECHLAND, {
@@ -103,7 +107,7 @@ export async function getTechlandProductDetails(url: string) {
 	for (let page = 1; page < MAX_ITEM_LIMIT; page++) {
 		try {
 			consoleInfo(ProductProvider.TECHLAND, `PAGE ${page}...`);
-			const r = await proxyRequest(url);
+			const r = await proxyRequest(`${url}?page=${page}`);
 			const $ = cheerio.load(await r.data);
 			const productUrls: string[] = [];
 			for (const el of $("#product-container").children().toArray()) {
@@ -141,16 +145,18 @@ export async function scrapeTechlandCategories() {
 		navLinks.push(navLink);
 	}
 	await Promise.all(
-		navLinks.map(async (navLink) => {
-			consoleInfo(ProductProvider.TECHLAND, `Scraping ${navLink}...`);
-			try {
-				await getTechlandProductDetails(navLink);
-			} catch (err) {
-				consoleError(
-					ProductProvider.TECHLAND,
-					`Failed to scrape ${navLink} : ${err}`,
-				);
-			}
-		}),
+		navLinks.map((navLink) =>
+			limit(async () => {
+				consoleInfo(ProductProvider.TECHLAND, `Scraping ${navLink}...`);
+				try {
+					await getTechlandProductDetails(navLink);
+				} catch (err) {
+					consoleError(
+						ProductProvider.TECHLAND,
+						`Failed to scrape ${navLink} : ${err}`,
+					);
+				}
+			}),
+		),
 	);
 }

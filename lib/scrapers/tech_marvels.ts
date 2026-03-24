@@ -13,7 +13,9 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
+import pLimit from "p-limit";
 
+const limit = pLimit(3);
 export async function processProductUrl(productUrl: string) {
 	try {
 		const r = await proxyRequest(productUrl);
@@ -137,9 +139,15 @@ export async function scrapeTechMarvelsCategories() {
 		`Scraped Categories: ${navLinks}`,
 	);
 	await Promise.all(
-		navLinks.map(async (navLink) => {
-			consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${navLink}`);
-			await getTechMarvelsProductDetails(navLink);
-		}),
+		navLinks.map((navLink) =>
+			limit(async () => {
+				try {
+					consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${navLink}`);
+					await getTechMarvelsProductDetails(navLink);
+				} catch (err) {
+					consoleError(ProductProvider.TECH_MARVELS, `Failed to scrape ${err}`);
+				}
+			}),
+		),
 	);
 }

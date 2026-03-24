@@ -13,7 +13,9 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
+import pLimit from "p-limit";
 
+const limit = pLimit(3);
 export async function getStartechProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		consoleInfo(
@@ -122,9 +124,15 @@ export async function scrapeStartechCategories() {
 		navLinks.push(navLink);
 	}
 	await Promise.all(
-		navLinks.map(async (navLink) => {
-			consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
-			await getStartechProductDetails(navLink);
-		}),
+		navLinks.map((navLink) =>
+			limit(async () => {
+				try {
+					consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
+					await getStartechProductDetails(navLink);
+				} catch (err) {
+					consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
+				}
+			}),
+		),
 	);
 }

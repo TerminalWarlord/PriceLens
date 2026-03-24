@@ -13,7 +13,9 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
+import pLimit from "p-limit";
 
+const limit = pLimit(3);
 export async function getComputerVillageProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		const r = await proxyRequest(`${url}?limit=200&page=${page}&fq=1`);
@@ -115,9 +117,21 @@ export async function scrapeComputerVillageCategories() {
 		navLinks.push(navLink);
 	}
 	await Promise.all(
-		navLinks.map(async (navLink) => {
-			consoleInfo(ProductProvider.COMPUTER_VILLAGE, `Scraping : ${navLink}`);
-			await getComputerVillageProductDetails(navLink);
-		}),
+		navLinks.map((navLink) =>
+			limit(async () => {
+				try {
+					consoleInfo(
+						ProductProvider.COMPUTER_VILLAGE,
+						`Scraping : ${navLink}`,
+					);
+					await getComputerVillageProductDetails(navLink);
+				} catch (err) {
+					consoleError(
+						ProductProvider.COMPUTER_VILLAGE,
+						`Failed to scrape : ${err}`,
+					);
+				}
+			}),
+		),
 	);
 }
