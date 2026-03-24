@@ -7,3 +7,9 @@ export enum ProductProvider {
 	VERTECH = "VERTECH",
 	APPLE_GADGETS = "APPLE_GADGETS",
 }
+
+export enum SortBy {
+	PRODUCT_PRICE = "product_price",
+	CREATED_AT = "created_at",
+	UPDATED_AT = "updated_at",
+}
