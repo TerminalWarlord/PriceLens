@@ -44,8 +44,16 @@ jobs:
           ${{ secrets.ENV_VALUES }}
           ENVEOF
 
+            # Run Meilisearch server using docker-compose.yml
+            docker-compose up -d --build
+
             # Install packages
             ~/.bun/bin/bun i
+
+            # Load NVM
+            export NVM_DIR="$HOME/.nvm"
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm use 22
 
             if pm2 list | grep -Eq 'pricelens_backend'; then
               pm2 restart pricelens_backend --update-env
