@@ -6,9 +6,10 @@ import { processAppleGadgetsProductUrl } from "../lib/scrapers/apple_gadgets";
 import { processTechLandProductUrl } from "../lib/scrapers/techland";
 import { processTechMarvelsProductUrl } from "../lib/scrapers/tech_marvels";
 import { processComputerVillageProductUrl } from "../lib/scrapers/computer_village";
+import { PLIMIT } from "../lib/scrapers/scraper_config";
 
-const limit = pLimit(5);
 async function processQueue() {
+	const limit = pLimit(PLIMIT);
 	while (true) {
 		const jobs: { provider: ProductProvider; productUrl: string }[] = [];
 		const BATCH = 5;
