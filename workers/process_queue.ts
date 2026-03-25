@@ -6,13 +6,13 @@ import { processAppleGadgetsProductUrl } from "../lib/scrapers/apple_gadgets";
 import { processTechLandProductUrl } from "../lib/scrapers/techland";
 import { processTechMarvelsProductUrl } from "../lib/scrapers/tech_marvels";
 import { processComputerVillageProductUrl } from "../lib/scrapers/computer_village";
-import { PLIMIT } from "../lib/scrapers/scraper_config";
+import { PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
 
 async function processQueue() {
-	const limit = pLimit(PLIMIT);
+	const limit = pLimit(PRODUCT_PLIMIT);
 	while (true) {
 		const jobs: { provider: ProductProvider; productUrl: string }[] = [];
-		const BATCH = 5;
+		const BATCH = parseInt(process.env.PRODUCT_PLIMIT!) || 5;
 		for (let i = 0; i < BATCH; i++) {
 			const job = await redis_client.rpop("pricelens");
 			if (!job) break;
