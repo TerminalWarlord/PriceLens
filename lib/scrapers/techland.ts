@@ -16,7 +16,6 @@ import {
 } from "./debugger";
 import { addItemToQueue } from "../redis/add_item";
 
-const limit = pLimit(PLIMIT);
 export async function processTechLandProductUrl(productUrl: string) {
 	consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
 	const r = await proxyRequest(productUrl);
@@ -140,27 +139,18 @@ export async function scrapeTechlandCategories() {
 		);
 		const data = await r.data;
 		const $ = cheerio.load(data);
-		const navLinks = [];
 		for (const el of $("a").toArray()) {
 			const navLink = $(el).attr("href");
 			if (!navLink || navLink === "#") continue;
-			navLinks.push(navLink);
+			try {
+				await getTechlandProductDetails(navLink);
+			} catch (err) {
+				consoleError(
+					ProductProvider.TECHLAND,
+					`Failed to scrape ${navLink} : ${err}`,
+				);
+			}
 		}
-		await Promise.all(
-			navLinks.map((navLink) =>
-				limit(async () => {
-					consoleInfo(ProductProvider.TECHLAND, `Scraping ${navLink}...`);
-					try {
-						await getTechlandProductDetails(navLink);
-					} catch (err) {
-						consoleError(
-							ProductProvider.TECHLAND,
-							`Failed to scrape ${navLink} : ${err}`,
-						);
-					}
-				}),
-			),
-		);
 	} catch (err) {
 		consoleError(ProductProvider.TECHLAND, `Failed to scrape ${err}`);
 	}

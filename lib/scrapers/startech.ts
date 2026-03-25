@@ -130,24 +130,16 @@ export async function scrapeStartechCategories() {
 		const r = await proxyRequest(url, Method.GET);
 		const data = await r.data;
 		const $ = cheerio.load(data);
-		const navLinks = [];
 		for (const el of $("a.nav-link").toArray()) {
 			const navLink = $(el).attr("href");
 			if (!navLink) continue;
-			navLinks.push(navLink);
+			try {
+				consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
+				await getStartechProductDetails(navLink);
+			} catch (err) {
+				consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
+			}
 		}
-		await Promise.all(
-			navLinks.map((navLink) =>
-				limit(async () => {
-					try {
-						consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
-						await getStartechProductDetails(navLink);
-					} catch (err) {
-						consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
-					}
-				}),
-			),
-		);
 	} catch (err) {
 		consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
 	}

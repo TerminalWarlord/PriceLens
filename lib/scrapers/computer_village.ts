@@ -13,10 +13,7 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
-import pLimit from "p-limit";
 import { addItemToQueue } from "../redis/add_item";
-
-const limit = pLimit(PLIMIT);
 
 export async function processComputerVillageProductUrl(productUrl: string) {
 	try {
@@ -128,30 +125,19 @@ export async function scrapeComputerVillageCategories() {
 	try {
 		const r = await proxyRequest("https://www.computervillage.com.bd/");
 		const $ = cheerio.load(r.data);
-		const navLinks = [];
 		for (const el of $(".main-menu .j-menu").children().toArray()) {
 			const navLink = $(el).find("a").attr("href");
 			if (!navLink) continue;
-			navLinks.push(navLink);
+			try {
+				consoleInfo(ProductProvider.COMPUTER_VILLAGE, `Scraping : ${navLink}`);
+				await getComputerVillageProductDetails(navLink);
+			} catch (err) {
+				consoleError(
+					ProductProvider.COMPUTER_VILLAGE,
+					`Failed to scrape : ${err}`,
+				);
+			}
 		}
-		await Promise.all(
-			navLinks.map((navLink) =>
-				limit(async () => {
-					try {
-						consoleInfo(
-							ProductProvider.COMPUTER_VILLAGE,
-							`Scraping : ${navLink}`,
-						);
-						await getComputerVillageProductDetails(navLink);
-					} catch (err) {
-						consoleError(
-							ProductProvider.COMPUTER_VILLAGE,
-							`Failed to scrape : ${err}`,
-						);
-					}
-				}),
-			),
-		);
 	} catch (err) {
 		consoleError(ProductProvider.COMPUTER_VILLAGE, `Failed to scrape ${err}`);
 	}
