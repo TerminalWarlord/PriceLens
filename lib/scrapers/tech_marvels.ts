@@ -5,7 +5,7 @@ import { productsTable } from "../../src/db/schema/products";
 import { and, eq } from "drizzle-orm";
 import { ProductProvider } from "../../types/product_type";
 import { productPricesTable } from "../../src/db/schema/product_prices";
-import { MAX_PAGE_LIMIT } from "./scraper_config";
+import { MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
 import { uploadImage } from "../r2/upload_image";
 import {
 	consoleError,
@@ -16,7 +16,7 @@ import {
 import pLimit from "p-limit";
 import { addItemToQueue } from "../redis/add_item";
 
-const limit = pLimit(3);
+const limit = pLimit(PLIMIT);
 export async function processTechMarvelsProductUrl(productUrl: string) {
 	try {
 		consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${productUrl}`);
@@ -130,7 +130,6 @@ export async function getTechMarvelsProductDetails(url: string) {
 
 export async function scrapeTechMarvelsCategories() {
 	try {
-
 		const r = await proxyRequest("https://techmarvels.com.bd/");
 		const $ = cheerio.load(await r.data);
 		const navLinks = [];
@@ -152,14 +151,15 @@ export async function scrapeTechMarvelsCategories() {
 						consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${navLink}`);
 						await getTechMarvelsProductDetails(navLink);
 					} catch (err) {
-						consoleError(ProductProvider.TECH_MARVELS, `Failed to scrape ${err}`);
+						consoleError(
+							ProductProvider.TECH_MARVELS,
+							`Failed to scrape ${err}`,
+						);
 					}
 				}),
 			),
 		);
-	}
-	catch (err) {
+	} catch (err) {
 		consoleError(ProductProvider.TECH_MARVELS, `Failed to scrape ${err}`);
 	}
-
 }

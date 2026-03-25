@@ -4,7 +4,7 @@ import { db } from "../db";
 import { productsTable } from "../../src/db/schema/products";
 import { and, eq } from "drizzle-orm";
 import { ProductProvider } from "../../types/product_type";
-import { MAX_ITEM_LIMIT } from "./scraper_config";
+import { MAX_ITEM_LIMIT, PLIMIT } from "./scraper_config";
 import { uploadImage } from "../r2/upload_image";
 import { productPricesTable } from "../../src/db/schema/product_prices";
 import pLimit from "p-limit";
@@ -16,7 +16,7 @@ import {
 } from "./debugger";
 import { addItemToQueue } from "../redis/add_item";
 
-const limit = pLimit(3);
+const limit = pLimit(PLIMIT);
 export async function processTechLandProductUrl(productUrl: string) {
 	consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
 	const r = await proxyRequest(productUrl);
@@ -135,7 +135,6 @@ export async function getTechlandProductDetails(url: string) {
 
 export async function scrapeTechlandCategories() {
 	try {
-
 		const r = await proxyRequest(
 			"https://www.techlandbd.com/ajax/header-navigation",
 		);
@@ -162,11 +161,7 @@ export async function scrapeTechlandCategories() {
 				}),
 			),
 		);
-	}
-	catch (err) {
-		consoleError(
-			ProductProvider.TECHLAND,
-			`Failed to scrape ${err}`,
-		);
+	} catch (err) {
+		consoleError(ProductProvider.TECHLAND, `Failed to scrape ${err}`);
 	}
 }

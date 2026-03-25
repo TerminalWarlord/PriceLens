@@ -4,7 +4,7 @@ import { db } from "../db";
 import { productsTable } from "../../src/db/schema/products";
 import { ProductProvider } from "../../types/product_type";
 import { and, eq } from "drizzle-orm";
-import { MAX_PAGE_LIMIT } from "./scraper_config";
+import { MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
 import { uploadImage } from "../r2/upload_image";
 import { productPricesTable } from "../../src/db/schema/product_prices";
 import {
@@ -16,7 +16,7 @@ import {
 import pLimit from "p-limit";
 import { addItemToQueue } from "../redis/add_item";
 
-const limit = pLimit(3);
+const limit = pLimit(PLIMIT);
 
 export async function processStartechProductUrl(productUrl: string) {
 	consoleInfo(ProductProvider.STARTECH, `Scraping ${productUrl}`);
@@ -148,9 +148,7 @@ export async function scrapeStartechCategories() {
 				}),
 			),
 		);
-	}
-	catch (err) {
+	} catch (err) {
 		consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
 	}
-
 }

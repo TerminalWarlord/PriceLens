@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { proxyRequest } from "../utils/proxy_request";
-import { MAX_PAGE_LIMIT } from "./scraper_config";
+import { MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
 import { db } from "../db";
 import { productsTable } from "../../src/db/schema/products";
 import { and, eq } from "drizzle-orm";
@@ -16,7 +16,7 @@ import {
 import pLimit from "p-limit";
 import { addItemToQueue } from "../redis/add_item";
 
-const limit = pLimit(3);
+const limit = pLimit(PLIMIT);
 const BASE_URL = "https://www.applegadgetsbd.com";
 
 export async function processAppleGadgetsProductUrl(productUrl: string) {
@@ -130,7 +130,6 @@ export async function getAppleGadgetsProductDetails(url: string) {
 
 export async function scrapeAppleGadgetsCategories() {
 	try {
-
 		const r = await proxyRequest("https://www.applegadgetsbd.com/");
 		const $ = cheerio.load(await r.data);
 		const navLinks = [];
@@ -157,9 +156,7 @@ export async function scrapeAppleGadgetsCategories() {
 				}),
 			),
 		);
-	}
-	catch (err) {
+	} catch (err) {
 		consoleError(ProductProvider.APPLE_GADGETS, `Failed to scrape ${err}`);
-
 	}
 }

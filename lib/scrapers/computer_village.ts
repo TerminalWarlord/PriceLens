@@ -1,6 +1,6 @@
 import { proxyRequest } from "../utils/proxy_request";
 import * as cheerio from "cheerio";
-import { MAX_PAGE_LIMIT } from "./scraper_config";
+import { MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
 import { ProductProvider } from "../../types/product_type";
 import { productsTable } from "../../src/db/schema/products";
 import { productPricesTable } from "../../src/db/schema/product_prices";
@@ -16,7 +16,7 @@ import {
 import pLimit from "p-limit";
 import { addItemToQueue } from "../redis/add_item";
 
-const limit = pLimit(3);
+const limit = pLimit(PLIMIT);
 
 export async function processComputerVillageProductUrl(productUrl: string) {
 	try {
@@ -126,8 +126,6 @@ export async function getComputerVillageProductDetails(url: string) {
 
 export async function scrapeComputerVillageCategories() {
 	try {
-
-
 		const r = await proxyRequest("https://www.computervillage.com.bd/");
 		const $ = cheerio.load(r.data);
 		const navLinks = [];
@@ -154,9 +152,7 @@ export async function scrapeComputerVillageCategories() {
 				}),
 			),
 		);
-	}
-	catch (err) {
+	} catch (err) {
 		consoleError(ProductProvider.COMPUTER_VILLAGE, `Failed to scrape ${err}`);
-
 	}
 }
