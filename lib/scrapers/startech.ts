@@ -14,7 +14,7 @@ import {
 	consoleSuccess,
 } from "./debugger";
 import pLimit from "p-limit";
-import { addItemToQueue } from "../redis/add_item";
+import { addItemToQueue, isCategoryProcessed } from "../redis/redis_helper";
 
 export async function processStartechProductUrl(productUrl: string) {
 	consoleInfo(ProductProvider.STARTECH, `Scraping ${productUrl}`);
@@ -144,6 +144,11 @@ export async function scrapeStartechCategories() {
 		const tasks = Array.from(navLinks).map((navLink) =>
 			categoryLimit(async () => {
 				try {
+					const isProcessed = await isCategoryProcessed(
+						navLink,
+						ProductProvider.STARTECH,
+					);
+					if (isProcessed) return;
 					consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
 					await getStartechProductDetails(navLink);
 				} catch (err) {

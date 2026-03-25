@@ -1,6 +1,17 @@
 import { ProductProvider } from "../../types/product_type";
 import { redis_client } from "./redis_client";
 
+export async function isCategoryProcessed(
+	categoryUrl: string,
+	provider: ProductProvider,
+) {
+	const exists = await redis_client.sadd(
+		`pricelens_queue:categories:${provider}`,
+		categoryUrl,
+	);
+	return exists === 1 ? false : true;
+}
+
 export async function addItemToQueue(
 	productUrl: string,
 	provider: ProductProvider,

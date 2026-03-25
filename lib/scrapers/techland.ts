@@ -14,7 +14,7 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
-import { addItemToQueue } from "../redis/add_item";
+import { addItemToQueue, isCategoryProcessed } from "../redis/redis_helper";
 
 export async function processTechLandProductUrl(productUrl: string) {
 	consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
@@ -139,18 +139,38 @@ export async function scrapeTechlandCategories() {
 		);
 		const data = await r.data;
 		const $ = cheerio.load(data);
+		const navLinks = new Set<string>();
 		for (const el of $("a").toArray()) {
 			const navLink = $(el).attr("href");
 			if (!navLink || navLink === "#") continue;
-			try {
-				await getTechlandProductDetails(navLink);
-			} catch (err) {
-				consoleError(
-					ProductProvider.TECHLAND,
-					`Failed to scrape ${navLink} : ${err}`,
-				);
-			}
+			navLinks.add(navLink);
 		}
+		const categoryLimit = pLimit(PLIMIT);
+		const tasks = Array.from(navLinks).map((navLink) =>
+			categoryLimit(async () => {
+				try {
+					const isProcessed = await isCategoryProcessed(
+						navLink,
+						ProductProvider.TECHLAND,
+					);
+					if (isProcessed) {
+						consoleError(
+							ProductProvider.TECHLAND,
+							`${navLink} has already been processed`,
+						);
+						return;
+					}
+					await getTechlandProductDetails(navLink);
+				} catch (err) {
+					consoleError(
+						ProductProvider.TECHLAND,
+						`Failed to scrape ${navLink} : ${err}`,
+					);
+				}
+			}),
+		);
+		await Promise.all(tasks);
+		consoleSuccess(ProductProvider.TECHLAND, `Processed all categories`);
 	} catch (err) {
 		consoleError(ProductProvider.TECHLAND, `Failed to scrape ${err}`);
 	}

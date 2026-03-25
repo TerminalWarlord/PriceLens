@@ -14,7 +14,7 @@ import {
 	consoleSuccess,
 } from "./debugger";
 import pLimit from "p-limit";
-import { addItemToQueue } from "../redis/add_item";
+import { addItemToQueue, isCategoryProcessed } from "../redis/redis_helper";
 
 const BASE_URL = "https://www.applegadgetsbd.com";
 
@@ -122,11 +122,23 @@ export async function scrapeAppleGadgetsCategories() {
 	try {
 		const r = await proxyRequest("https://www.applegadgetsbd.com/");
 		const $ = cheerio.load(await r.data);
+		const navLinks = new Set<string>();
 		for (const el of $("a").toArray()) {
 			const navLink = BASE_URL + $(el).attr("href");
 			if (!navLink) continue;
 			if (navLink.includes("/category/") || navLink.includes("/brand/")) {
+				navLinks.add(navLink);
+			}
+		}
+		const categoryLimit = pLimit(PLIMIT);
+		const tasks = Array.from(navLinks).map((navLink) =>
+			categoryLimit(async () => {
 				try {
+					const isProcessed = await isCategoryProcessed(
+						navLink,
+						ProductProvider.APPLE_GADGETS,
+					);
+					if (isProcessed) return;
 					consoleInfo(ProductProvider.APPLE_GADGETS, `Scraping : ${navLink}`);
 					await getAppleGadgetsProductDetails(navLink);
 				} catch (err) {
@@ -135,8 +147,11 @@ export async function scrapeAppleGadgetsCategories() {
 						`Failed to scrape ${err}`,
 					);
 				}
-			}
-		}
+			}),
+		);
+
+		await Promise.all(tasks);
+		consoleSuccess(ProductProvider.APPLE_GADGETS, `Processed all categories`);
 	} catch (err) {
 		consoleError(ProductProvider.APPLE_GADGETS, `Failed to scrape ${err}`);
 	}
