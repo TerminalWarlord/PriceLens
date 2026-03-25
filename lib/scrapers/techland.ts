@@ -14,9 +14,11 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
+import { addItemToQueue } from "../redis/add_item";
 
 const limit = pLimit(3);
-export async function processProductUrl(productUrl: string) {
+export async function processTechLandProductUrl(productUrl: string) {
+	consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
 	const r = await proxyRequest(productUrl);
 	const $ = cheerio.load(await r.data);
 	consoleInfo(ProductProvider.TECHLAND, `Getting product info: ${productUrl}`);
@@ -84,7 +86,7 @@ export async function processProductUrl(productUrl: string) {
 		.insert(productsTable)
 		.values({
 			product_name: productName,
-			product_price: productPrice,
+			product_price: BigInt(productPrice),
 			product_description: productDescription.trim(),
 			product_image: uploadedImagePath,
 			product_url: productUrl,
@@ -95,7 +97,7 @@ export async function processProductUrl(productUrl: string) {
 	await db.insert(productPricesTable).values({
 		name: productName,
 		description: productDescription.trim(),
-		price: productPrice,
+		price: BigInt(productPrice),
 		product_id: result.id,
 		provider: ProductProvider.TECHLAND,
 	});
@@ -117,12 +119,11 @@ export async function getTechlandProductDetails(url: string) {
 			}
 			for (const productUrl of productUrls) {
 				try {
-					consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
-					await processProductUrl(productUrl);
+					await addItemToQueue(productUrl, ProductProvider.TECHLAND);
 				} catch (err) {
 					consoleError(
 						ProductProvider.TECHLAND,
-						`Failed to process ${productUrl} ${err}`,
+						`Failed to add item to the queue ${productUrl} ${err}`,
 					);
 				}
 			}

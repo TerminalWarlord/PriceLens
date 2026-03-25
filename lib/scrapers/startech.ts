@@ -14,8 +14,85 @@ import {
 	consoleSuccess,
 } from "./debugger";
 import pLimit from "p-limit";
+import { addItemToQueue } from "../redis/add_item";
 
 const limit = pLimit(3);
+
+export async function processStartechProductUrl(productUrl: string) {
+	consoleInfo(ProductProvider.STARTECH, `Scraping ${productUrl}`);
+	const r = await proxyRequest(productUrl);
+	const data = r.data;
+	const $ = cheerio.load(data);
+	const productName = $("h1.product-name").text().trim();
+	const productPrice =
+		Number(
+			$("table.product-info-table tbody")
+				.find(".product-info-data.product-price")
+				.text()
+				.trim()
+				.replace(/,/g, "")
+				.replace(/৳/g, ""),
+		) * 100;
+	const productImage = $("img.main-img").attr("src");
+	let productDescription = "";
+	for (const el of $("div.short-description ul").children().toArray()) {
+		if ($(el).hasClass("view-more")) continue;
+		productDescription += $(el).text().trim() + "\n";
+	}
+	productDescription = productDescription.trim();
+	if (
+		!productName ||
+		!productImage ||
+		!productDescription ||
+		!productUrl ||
+		isNaN(productPrice)
+	) {
+		return;
+	}
+	const item = await db
+		.select()
+		.from(productsTable)
+		.where(
+			and(
+				eq(productsTable.product_url, productUrl),
+				eq(productsTable.product_provider, ProductProvider.STARTECH),
+			),
+		);
+	if (item && item.length) {
+		return;
+	}
+	const uploadedImagePath = await uploadImage(
+		productImage,
+		ProductProvider.STARTECH,
+	);
+	consoleLogProduct(ProductProvider.STARTECH, {
+		name: productName,
+		description: productDescription.trim(),
+		image: productImage,
+		price: productPrice,
+	});
+	const [result] = await db
+		.insert(productsTable)
+		.values({
+			product_name: productName,
+			product_url: productUrl,
+			product_price: productPrice,
+			product_description: productDescription.trim(),
+			product_image: uploadedImagePath,
+			product_provider: ProductProvider.STARTECH,
+		})
+		.returning({ id: productsTable.id });
+
+	await db.insert(productPricesTable).values({
+		name: productName,
+		description: productDescription.trim(),
+		price: productPrice,
+		product_id: result.id,
+		provider: ProductProvider.STARTECH,
+	});
+	consoleSuccess(ProductProvider.STARTECH, `Added ${productUrl}`);
+}
+
 export async function getStartechProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		consoleInfo(
@@ -33,80 +110,15 @@ export async function getStartechProductDetails(url: string) {
 
 		if (items.length === 0) return;
 		for (const el of items.children().toArray()) {
+			const productUrl = $(el).find(".p-item-name").find("a").attr("href");
+			if (!productUrl) continue;
 			try {
-				const productImage = $(el).find("img").attr("src");
-				const productDescription = $(el)
-					.find(".short-description")
-					.text()
-					.trim();
-				const productName = $(el).find(".p-item-name").find("a").text();
-				const productUrl = $(el).find(".p-item-name").find("a").attr("href");
-				// convert to paisa
-				const productPrice =
-					Number(
-						$(el)
-							.find(".p-item-price")
-							.find("span")
-							.first()
-							.text()
-							.trim()
-							.replace(/৳/g, "")
-							.replace(/,/g, ""),
-					) * 100;
-				if (
-					!productName ||
-					!productImage ||
-					!productDescription ||
-					!productUrl ||
-					isNaN(productPrice)
-				) {
-					continue;
-				}
-				const item = await db
-					.select()
-					.from(productsTable)
-					.where(
-						and(
-							eq(productsTable.product_url, productUrl),
-							eq(productsTable.product_provider, ProductProvider.STARTECH),
-						),
-					);
-				if (item && item.length) {
-					consoleError(ProductProvider.STARTECH, `Item Exists : ${productUrl}`);
-					continue;
-				}
-				consoleLogProduct(ProductProvider.STARTECH, {
-					name: productName,
-					description: productDescription,
-					image: productImage,
-					price: productPrice,
-				});
-				const uploadedImagePath = await uploadImage(
-					productImage,
-					ProductProvider.STARTECH,
-				);
-				const [result] = await db
-					.insert(productsTable)
-					.values({
-						product_name: productName,
-						product_url: productUrl,
-						product_price: productPrice,
-						product_description: productDescription.trim(),
-						product_image: uploadedImagePath,
-						product_provider: ProductProvider.STARTECH,
-					})
-					.returning({ id: productsTable.id });
-
-				await db.insert(productPricesTable).values({
-					name: productName,
-					description: productDescription.trim(),
-					price: productPrice,
-					product_id: result.id,
-					provider: ProductProvider.STARTECH,
-				});
-				consoleSuccess(ProductProvider.STARTECH, `Added ${productUrl}`);
+				await addItemToQueue(productUrl, ProductProvider.STARTECH);
 			} catch (err) {
-				consoleError(ProductProvider.STARTECH, `Failed to scrape: ${err}`);
+				consoleError(
+					ProductProvider.STARTECH,
+					`Failed to add ${productUrl} : ${err}`,
+				);
 			}
 		}
 	}

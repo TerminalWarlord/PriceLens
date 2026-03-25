@@ -14,77 +14,88 @@ import {
 	consoleSuccess,
 } from "./debugger";
 import pLimit from "p-limit";
+import { addItemToQueue } from "../redis/add_item";
 
 const limit = pLimit(3);
 const BASE_URL = "https://www.applegadgetsbd.com";
 
-async function processProductUrl(productUrl: string) {
-	const r = await proxyRequest(productUrl);
-	const data = await r.data;
-	const $ = cheerio.load(data);
-	const productImage = $('meta[property="og:image"]')
-		.attr("content")
-		?.replace("/large/", "/medium/");
-	const productName = $("main section h1").text();
-	const priceMatch = data.match(/\\"price\\"\s*:\s*\{\\"value\\"\s*:\s*(\d+)/);
-	let productDescription = "";
-	for (const el of $("#tabSpecification table tbody").children()) {
-		const fieldTitle = $(el).find("td").eq(0).text();
-		const fieldValue = $(el).find("td").eq(1).text();
-		productDescription += `${fieldTitle}: ${fieldValue}\n`;
-	}
-	const productPrice = Number(priceMatch?.[1]) * 100;
-	if (
-		!productName ||
-		!productImage ||
-		!productDescription ||
-		!productUrl ||
-		isNaN(productPrice)
-	) {
-		return;
-	}
-	const item = await db
-		.select()
-		.from(productsTable)
-		.where(
-			and(
-				eq(productsTable.product_url, productUrl),
-				eq(productsTable.product_provider, ProductProvider.APPLE_GADGETS),
-			),
+export async function processAppleGadgetsProductUrl(productUrl: string) {
+	try {
+		consoleInfo(ProductProvider.APPLE_GADGETS, `Scraping: ${productUrl}`);
+		const r = await proxyRequest(productUrl);
+		const data = await r.data;
+		const $ = cheerio.load(data);
+		const productImage = $('meta[property="og:image"]')
+			.attr("content")
+			?.replace("/large/", "/medium/");
+		const productName = $("main section h1").text();
+		const priceMatch = data.match(
+			/\\"price\\"\s*:\s*\{\\"value\\"\s*:\s*(\d+)/,
 		);
-	if (item && item.length) {
-		return;
-	}
-	const uploadedImagePath = await uploadImage(
-		productImage,
-		ProductProvider.APPLE_GADGETS,
-	);
-	consoleLogProduct(ProductProvider.APPLE_GADGETS, {
-		name: productName,
-		description: productDescription.trim(),
-		image: productImage,
-		price: productPrice,
-	});
-	const [result] = await db
-		.insert(productsTable)
-		.values({
-			product_name: productName,
-			product_url: productUrl,
-			product_price: productPrice,
-			product_description: productDescription.trim(),
-			product_image: uploadedImagePath,
-			product_provider: ProductProvider.APPLE_GADGETS,
-		})
-		.returning({ id: productsTable.id });
+		let productDescription = "";
+		for (const el of $("#tabSpecification table tbody").children()) {
+			const fieldTitle = $(el).find("td").eq(0).text();
+			const fieldValue = $(el).find("td").eq(1).text();
+			productDescription += `${fieldTitle}: ${fieldValue}\n`;
+		}
+		const productPrice = Number(priceMatch?.[1]) * 100;
+		if (
+			!productName ||
+			!productImage ||
+			!productDescription ||
+			!productUrl ||
+			isNaN(productPrice)
+		) {
+			return;
+		}
+		const item = await db
+			.select()
+			.from(productsTable)
+			.where(
+				and(
+					eq(productsTable.product_url, productUrl),
+					eq(productsTable.product_provider, ProductProvider.APPLE_GADGETS),
+				),
+			);
+		if (item && item.length) {
+			return;
+		}
+		const uploadedImagePath = await uploadImage(
+			productImage,
+			ProductProvider.APPLE_GADGETS,
+		);
+		consoleLogProduct(ProductProvider.APPLE_GADGETS, {
+			name: productName,
+			description: productDescription.trim(),
+			image: productImage,
+			price: productPrice,
+		});
+		const [result] = await db
+			.insert(productsTable)
+			.values({
+				product_name: productName,
+				product_url: productUrl,
+				product_price: BigInt(productPrice),
+				product_description: productDescription.trim(),
+				product_image: uploadedImagePath,
+				product_provider: ProductProvider.APPLE_GADGETS,
+			})
+			.returning({ id: productsTable.id });
 
-	await db.insert(productPricesTable).values({
-		name: productName,
-		description: productDescription.trim(),
-		price: productPrice,
-		product_id: result.id,
-		provider: ProductProvider.APPLE_GADGETS,
-	});
-	consoleSuccess(ProductProvider.APPLE_GADGETS, `Added ${productUrl}`);
+		await db.insert(productPricesTable).values({
+			name: productName,
+			description: productDescription.trim(),
+			price: BigInt(productPrice),
+			product_id: result.id,
+			provider: ProductProvider.APPLE_GADGETS,
+		});
+		consoleSuccess(ProductProvider.APPLE_GADGETS, `Added ${productUrl}`);
+	} catch (err) {
+		consoleError(
+			ProductProvider.APPLE_GADGETS,
+			`Failed to add ${productUrl} : ${err}`,
+		);
+	}
 }
 
 export async function getAppleGadgetsProductDetails(url: string) {
@@ -104,15 +115,11 @@ export async function getAppleGadgetsProductDetails(url: string) {
 			productUrls.map((productUrl) =>
 				limit(async () => {
 					try {
-						consoleInfo(
-							ProductProvider.APPLE_GADGETS,
-							`Scraping: ${productUrl}`,
-						);
-						await processProductUrl(BASE_URL + productUrl);
+						await addItemToQueue(productUrl, ProductProvider.APPLE_GADGETS);
 					} catch (err) {
 						consoleError(
 							ProductProvider.APPLE_GADGETS,
-							`Failed to scrape ${productUrl}: ${err}`,
+							`Failed to add item to the queue ${productUrl}: ${err}`,
 						);
 					}
 				}),

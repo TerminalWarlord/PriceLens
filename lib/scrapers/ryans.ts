@@ -109,7 +109,7 @@ export async function getRyansProductDetails(
 						.values({
 							product_name: productName,
 							product_url: productUrl,
-							product_price: productPrice,
+							product_price: BigInt(productPrice),
 							product_description: productDescription.trim(),
 							product_image: uploadedImagePath,
 							product_provider: ProductProvider.RYANS,
@@ -119,7 +119,7 @@ export async function getRyansProductDetails(
 					await db.insert(productPricesTable).values({
 						name: productName,
 						description: productDescription.trim(),
-						price: productPrice,
+						price: BigInt(productPrice),
 						product_id: result.id,
 						provider: ProductProvider.RYANS,
 					});

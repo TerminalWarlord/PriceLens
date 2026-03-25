@@ -14,10 +14,12 @@ import {
 	consoleSuccess,
 } from "./debugger";
 import pLimit from "p-limit";
+import { addItemToQueue } from "../redis/add_item";
 
 const limit = pLimit(3);
-export async function processProductUrl(productUrl: string) {
+export async function processTechMarvelsProductUrl(productUrl: string) {
 	try {
+		consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${productUrl}`);
 		const r = await proxyRequest(productUrl);
 		const $ = cheerio.load(await r.data);
 		const productName = $("h1.product_title").text().trim();
@@ -73,7 +75,7 @@ export async function processProductUrl(productUrl: string) {
 			.values({
 				product_name: productName,
 				product_url: productUrl,
-				product_price: productPrice,
+				product_price: BigInt(productPrice),
 				product_description: productDescription.trim(),
 				product_image: uploadedImagePath,
 				product_provider: ProductProvider.TECH_MARVELS,
@@ -83,7 +85,7 @@ export async function processProductUrl(productUrl: string) {
 		await db.insert(productPricesTable).values({
 			name: productName,
 			description: productDescription.trim(),
-			price: productPrice,
+			price: BigInt(productPrice),
 			product_id: result.id,
 			provider: ProductProvider.TECH_MARVELS,
 		});
@@ -108,11 +110,14 @@ export async function getTechMarvelsProductDetails(url: string) {
 			for (const el of $(".product-wrapper").toArray()) {
 				const productUrl = $(el).find("a").attr("href");
 				if (!productUrl) continue;
-				consoleInfo(
-					ProductProvider.TECH_MARVELS,
-					`[TECH MARVELS] Getting details for : ${productUrl}`,
-				);
-				await processProductUrl(productUrl);
+				try {
+					await addItemToQueue(productUrl, ProductProvider.TECH_MARVELS);
+				} catch (err) {
+					consoleError(
+						ProductProvider.TECH_MARVELS,
+						`Failed to add item to the queue ${[productUrl]}: ${err}`,
+					);
+				}
 			}
 		} catch (err) {
 			consoleError(

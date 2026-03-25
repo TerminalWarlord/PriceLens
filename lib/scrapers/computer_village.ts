@@ -14,93 +14,110 @@ import {
 	consoleSuccess,
 } from "./debugger";
 import pLimit from "p-limit";
+import { addItemToQueue } from "../redis/add_item";
 
 const limit = pLimit(3);
+
+export async function processComputerVillageProductUrl(productUrl: string) {
+	try {
+		const r = await proxyRequest(productUrl);
+		const $ = cheerio.load(r.data);
+		const productName = $("#product .title.page-title").text().trim();
+		const productPrice =
+			Number(
+				$(".short-info .product-mpn.product-data")
+					.eq(0)
+					.find("span")
+					.eq(1)
+					.text()
+					.trim()
+					.replace(/,/g, "")
+					.replace(/৳/g, ""),
+			) * 100;
+		let productDescription = "";
+		for (const el of $(".module-features-description ul").toArray()) {
+			productDescription += $(el).text().trim() + "\n";
+		}
+		productDescription = productDescription.trim();
+		const productImage = $(".product-image img").first().attr("src");
+		if (
+			!productName ||
+			!productImage ||
+			!productDescription ||
+			!productUrl ||
+			isNaN(productPrice)
+		) {
+			consoleError(
+				ProductProvider.COMPUTER_VILLAGE,
+				`${productUrl} missing metadata!`,
+			);
+			return;
+		}
+		consoleLogProduct(ProductProvider.COMPUTER_VILLAGE, {
+			name: productName,
+			description: productDescription,
+			image: productImage,
+			price: productPrice,
+		});
+		const item = await db
+			.select()
+			.from(productsTable)
+			.where(
+				and(
+					eq(productsTable.product_url, productUrl),
+					eq(productsTable.product_provider, ProductProvider.COMPUTER_VILLAGE),
+				),
+			);
+		if (item && item.length) {
+			consoleError(ProductProvider.COMPUTER_VILLAGE, `${productUrl} exists`);
+			return;
+		}
+		const uploadedImagePath = await uploadImage(
+			productImage,
+			ProductProvider.COMPUTER_VILLAGE,
+		);
+		const [result] = await db
+			.insert(productsTable)
+			.values({
+				product_name: productName,
+				product_url: productUrl,
+				product_price: BigInt(productPrice),
+				product_description: productDescription.trim(),
+				product_image: uploadedImagePath,
+				product_provider: ProductProvider.COMPUTER_VILLAGE,
+			})
+			.returning({ id: productsTable.id });
+
+		await db.insert(productPricesTable).values({
+			name: productName,
+			description: productDescription.trim(),
+			price: BigInt(productPrice),
+			product_id: result.id,
+			provider: ProductProvider.COMPUTER_VILLAGE,
+		});
+		consoleSuccess(ProductProvider.COMPUTER_VILLAGE, `Added ${productUrl}`);
+	} catch (err) {
+		consoleError(
+			ProductProvider.COMPUTER_VILLAGE,
+			`Failed to add ${productUrl}: ${err}`,
+		);
+	}
+}
+
 export async function getComputerVillageProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		const r = await proxyRequest(`${url}?limit=200&page=${page}&fq=1`);
 		if (r.status >= 400) break;
-		const $ = cheerio.load(await r.data);
+		const $ = cheerio.load(r.data);
 		for (const el of $(".main-products.product-grid").children().toArray()) {
 			try {
-				const productName = $(el).find(".caption .name").text();
 				const productUrl = $(el).find(".caption .name a").attr("href");
-				const productPrice =
-					Number(
-						$(el)
-							.find(".price div span")
-							.eq(0)
-							.text()
-							.replace(/,/g, "")
-							.replace(/৳/g, "")
-							.trim(),
-					) * 100;
-				let productDescription = "";
-				for (const li of $(el)
-					.find(".module-features-description ul")
-					.children()
-					.toArray()) {
-					productDescription += $(li).text() + "\n";
-				}
-				const productImage = $(el).find(".image img").attr("src");
-				if (
-					!productName ||
-					!productImage ||
-					!productDescription ||
-					!productUrl ||
-					isNaN(productPrice)
-				) {
-					continue;
-				}
-				consoleLogProduct(ProductProvider.COMPUTER_VILLAGE, {
-					name: productName,
-					description: productDescription,
-					image: productImage,
-					price: productPrice,
-				});
-				const item = await db
-					.select()
-					.from(productsTable)
-					.where(
-						and(
-							eq(productsTable.product_url, productUrl),
-							eq(
-								productsTable.product_provider,
-								ProductProvider.COMPUTER_VILLAGE,
-							),
-						),
-					);
-				if (item && item.length) {
-					continue;
-				}
-				const uploadedImagePath = await uploadImage(
-					productImage,
-					ProductProvider.COMPUTER_VILLAGE,
-				);
-				const [result] = await db
-					.insert(productsTable)
-					.values({
-						product_name: productName,
-						product_url: productUrl,
-						product_price: productPrice,
-						product_description: productDescription.trim(),
-						product_image: uploadedImagePath,
-						product_provider: ProductProvider.COMPUTER_VILLAGE,
-					})
-					.returning({ id: productsTable.id });
-
-				await db.insert(productPricesTable).values({
-					name: productName,
-					description: productDescription.trim(),
-					price: productPrice,
-					product_id: result.id,
-					provider: ProductProvider.COMPUTER_VILLAGE,
-				});
-				consoleSuccess(ProductProvider.COMPUTER_VILLAGE, `Added ${productUrl}`);
+				if (!productUrl) continue;
+				await addItemToQueue(productUrl, ProductProvider.COMPUTER_VILLAGE);
 			} catch (err) {
 				consoleError(
 					ProductProvider.COMPUTER_VILLAGE,
-					`Failed to store current item : ${err}`,
+					`Failed to add item to the queue : ${err}`,
 				);
 			}
 		}
@@ -109,7 +126,7 @@ export async function getComputerVillageProductDetails(url: string) {
 
 export async function scrapeComputerVillageCategories() {
 	const r = await proxyRequest("https://www.computervillage.com.bd/");
-	const $ = cheerio.load(await r.data);
+	const $ = cheerio.load(r.data);
 	const navLinks = [];
 	for (const el of $(".main-menu .j-menu").children().toArray()) {
 		const navLink = $(el).find("a").attr("href");
