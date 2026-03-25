@@ -1,4 +1,5 @@
 import {
+	bigint,
 	integer,
 	pgTable,
 	text,
@@ -13,7 +14,7 @@ export const productsTable = pgTable(
 	{
 		id: integer().primaryKey().generatedAlwaysAsIdentity(),
 		product_name: varchar({ length: 255 }).notNull(),
-		product_price: integer().notNull(),
+		product_price: bigint({ mode: "bigint" }).notNull(),
 		product_description: text().notNull(),
 		product_provider: ProductProvider().notNull(),
 		product_url: varchar({ length: 255 }).notNull(),

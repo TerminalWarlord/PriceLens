@@ -29,6 +29,20 @@
 			"when": 1774254325763,
 			"tag": "0003_lean_brood",
 			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1774428698033,
+			"tag": "0004_mature_morlocks",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1774429032963,
+			"tag": "0005_elite_stephen_strange",
+			"breakpoints": true
 		}
 	]
 }

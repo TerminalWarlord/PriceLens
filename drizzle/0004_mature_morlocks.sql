@@ -1,0 +1,1 @@
+ALTER TABLE "product_prices" ALTER COLUMN "price" SET DATA TYPE bigint;
