@@ -1,4 +1,5 @@
 import { ProductProvider } from "../../types/product_type";
+import { generateHash } from "../utils/hash_key";
 import { redis_client } from "./redis_client";
 
 export async function isCategoryProcessed(
@@ -10,6 +11,16 @@ export async function isCategoryProcessed(
 		categoryUrl,
 	);
 	return exists === 1 ? false : true;
+}
+
+export async function isPageProcessed(pageUrl: string) {
+	const key = `pricelens:pages:${generateHash(pageUrl)}`;
+	return await redis_client.get(key);
+}
+
+export async function markPageAsProcessed(pageUrl: string) {
+	const key = `pricelens:pages:${generateHash(pageUrl)}`;
+	return await redis_client.set(key, "1");
 }
 
 export async function addItemToQueue(

@@ -14,7 +14,12 @@ import {
 	consoleSuccess,
 } from "./debugger";
 import pLimit from "p-limit";
-import { addItemToQueue, isCategoryProcessed } from "../redis/redis_helper";
+import {
+	addItemToQueue,
+	isCategoryProcessed,
+	isPageProcessed,
+	markPageAsProcessed,
+} from "../redis/redis_helper";
 
 const BASE_URL = "https://www.applegadgetsbd.com";
 
@@ -101,6 +106,13 @@ export async function getAppleGadgetsProductDetails(url: string) {
 	// https://www.applegadgetsbd.com/category/laptop-and-desktop?page=2
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		const pageUrl = url + "?page=" + page;
+		if (await isPageProcessed(pageUrl)) {
+			consoleError(
+				ProductProvider.APPLE_GADGETS,
+				`Already processed : ${pageUrl}`,
+			);
+			continue;
+		}
 		const r = await proxyRequest(pageUrl);
 		if (r.status >= 400) break;
 		const $ = cheerio.load(await r.data);
@@ -118,16 +130,20 @@ export async function getAppleGadgetsProductDetails(url: string) {
 			);
 			return;
 		}
-
+		let processed = 0;
 		for (const productUrl of productUrls) {
 			try {
 				await addItemToQueue(productUrl, ProductProvider.APPLE_GADGETS);
+				processed += 1;
 			} catch (err) {
 				consoleError(
 					ProductProvider.APPLE_GADGETS,
 					`Failed to add item to the queue ${productUrl}: ${err}`,
 				);
 			}
+		}
+		if (processed === productUrls.length) {
+			await markPageAsProcessed(pageUrl);
 		}
 	}
 }

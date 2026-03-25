@@ -14,7 +14,12 @@ import {
 	consoleSuccess,
 } from "./debugger";
 import pLimit from "p-limit";
-import { addItemToQueue, isCategoryProcessed } from "../redis/redis_helper";
+import {
+	addItemToQueue,
+	isCategoryProcessed,
+	isPageProcessed,
+	markPageAsProcessed,
+} from "../redis/redis_helper";
 
 export async function processStartechProductUrl(productUrl: string) {
 	consoleInfo(ProductProvider.STARTECH, `Scraping ${productUrl}`);
@@ -99,29 +104,44 @@ export async function getStartechProductDetails(url: string) {
 		);
 		// filter_status=7 -> only shows in stock items
 		const pageUrl = url + `?page=${page}&filter_status=7`;
+		if (await isPageProcessed(pageUrl)) {
+			consoleError(ProductProvider.STARTECH, `Already processed : ${pageUrl}`);
+			continue;
+		}
 		const r = await proxyRequest(pageUrl);
 		const data = await r.data;
 		const $ = cheerio.load(data);
 		const items = $(".container").find(".p-item");
 
-		if (items.length === 0) {
+		const productUrls: string[] = [];
+		for (const el of items.children().toArray()) {
+			const productUrl = $(el).find(".p-item-name").find("a").attr("href");
+			if (!productUrl) continue;
+			productUrls.push(productUrl);
+		}
+		if (productUrls.length === 0) {
 			consoleError(
 				ProductProvider.STARTECH,
 				`No more items found on page ${pageUrl}`,
 			);
 			return;
 		}
-		for (const el of items.children().toArray()) {
-			const productUrl = $(el).find(".p-item-name").find("a").attr("href");
-			if (!productUrl) continue;
+
+		let processed = 0;
+		for (const productUrl of productUrls) {
 			try {
 				await addItemToQueue(productUrl, ProductProvider.STARTECH);
+				processed += 1;
 			} catch (err) {
 				consoleError(
 					ProductProvider.STARTECH,
 					`Failed to add ${productUrl} : ${err}`,
 				);
 			}
+		}
+
+		if (processed === productUrls.length) {
+			await markPageAsProcessed(pageUrl);
 		}
 	}
 }

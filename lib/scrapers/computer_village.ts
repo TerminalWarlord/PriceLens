@@ -13,7 +13,12 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
-import { addItemToQueue, isCategoryProcessed } from "../redis/redis_helper";
+import {
+	addItemToQueue,
+	isCategoryProcessed,
+	isPageProcessed,
+	markPageAsProcessed,
+} from "../redis/redis_helper";
 import pLimit from "p-limit";
 
 export async function processComputerVillageProductUrl(productUrl: string) {
@@ -105,6 +110,13 @@ export async function processComputerVillageProductUrl(productUrl: string) {
 export async function getComputerVillageProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		const pageUrl = `${url}?limit=200&page=${page}&fq=1`;
+		if (await isPageProcessed(pageUrl)) {
+			consoleError(
+				ProductProvider.COMPUTER_VILLAGE,
+				`Already processed : ${pageUrl}`,
+			);
+			continue;
+		}
 		const r = await proxyRequest(pageUrl);
 		if (r.status >= 400) break;
 		const $ = cheerio.load(r.data);
@@ -122,15 +134,20 @@ export async function getComputerVillageProductDetails(url: string) {
 			);
 			return;
 		}
+		let processed = 0;
 		for (const productUrl of productUrls) {
 			try {
 				await addItemToQueue(productUrl, ProductProvider.COMPUTER_VILLAGE);
+				processed += 1;
 			} catch (err) {
 				consoleError(
 					ProductProvider.COMPUTER_VILLAGE,
 					`Failed to add item to the queue : ${err}`,
 				);
 			}
+		}
+		if (processed === productUrls.length) {
+			await markPageAsProcessed(pageUrl);
 		}
 	}
 }

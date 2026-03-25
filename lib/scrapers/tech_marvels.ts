@@ -13,7 +13,12 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
-import { addItemToQueue, isCategoryProcessed } from "../redis/redis_helper";
+import {
+	addItemToQueue,
+	isCategoryProcessed,
+	isPageProcessed,
+	markPageAsProcessed,
+} from "../redis/redis_helper";
 import pLimit from "p-limit";
 
 export async function processTechMarvelsProductUrl(productUrl: string) {
@@ -98,11 +103,18 @@ export async function processTechMarvelsProductUrl(productUrl: string) {
 
 export async function getTechMarvelsProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
-		const newUrl = `${url}page/${page}/?per_page=50`;
+		const pageUrl = `${url}page/${page}/?per_page=50`;
 		consoleInfo(ProductProvider.TECH_MARVELS, `Page : ${page}`);
 		try {
-			consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${newUrl}`);
-			const r = await proxyRequest(newUrl);
+			if (await isPageProcessed(pageUrl)) {
+				consoleError(
+					ProductProvider.TECH_MARVELS,
+					`Already processed : ${pageUrl}`,
+				);
+				continue;
+			}
+			consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${pageUrl}`);
+			const r = await proxyRequest(pageUrl);
 			if (r.status >= 400) break;
 			const $ = cheerio.load(await r.data);
 			const productUrls = [];
@@ -114,19 +126,24 @@ export async function getTechMarvelsProductDetails(url: string) {
 			if (productUrls.length === 0) {
 				consoleError(
 					ProductProvider.TECH_MARVELS,
-					`No items found on ${newUrl}`,
+					`No items found on ${pageUrl}`,
 				);
 				return;
 			}
+			let processed = 0;
 			for (const productUrl of productUrls) {
 				try {
 					await addItemToQueue(productUrl, ProductProvider.TECH_MARVELS);
+					processed += 1;
 				} catch (err) {
 					consoleError(
 						ProductProvider.TECH_MARVELS,
 						`Failed to add item to the queue ${[productUrl]}: ${err}`,
 					);
 				}
+			}
+			if (processed === productUrls.length) {
+				await markPageAsProcessed(pageUrl);
 			}
 		} catch (err) {
 			consoleError(

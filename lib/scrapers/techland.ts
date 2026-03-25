@@ -14,7 +14,12 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
-import { addItemToQueue, isCategoryProcessed } from "../redis/redis_helper";
+import {
+	addItemToQueue,
+	isCategoryProcessed,
+	isPageProcessed,
+	markPageAsProcessed,
+} from "../redis/redis_helper";
 
 export async function processTechLandProductUrl(productUrl: string) {
 	consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
@@ -108,7 +113,15 @@ export async function getTechlandProductDetails(url: string) {
 	for (let page = 1; page < MAX_ITEM_LIMIT; page++) {
 		try {
 			consoleInfo(ProductProvider.TECHLAND, `PAGE ${page}...`);
-			const r = await proxyRequest(`${url}?page=${page}`);
+			const pageUrl = `${url}?page=${page}`;
+			if (await isPageProcessed(pageUrl)) {
+				consoleError(
+					ProductProvider.TECHLAND,
+					`Already processed : ${pageUrl}`,
+				);
+				continue;
+			}
+			const r = await proxyRequest(pageUrl);
 			const $ = cheerio.load(await r.data);
 			const productUrls: string[] = [];
 			for (const el of $("#product-container").children().toArray()) {
@@ -123,15 +136,20 @@ export async function getTechlandProductDetails(url: string) {
 				);
 				return;
 			}
+			let processed = 0;
 			for (const productUrl of productUrls) {
 				try {
 					await addItemToQueue(productUrl, ProductProvider.TECHLAND);
+					processed += 1;
 				} catch (err) {
 					consoleError(
 						ProductProvider.TECHLAND,
 						`Failed to add item to the queue ${productUrl} ${err}`,
 					);
 				}
+			}
+			if (processed === productUrls.length) {
+				await markPageAsProcessed(pageUrl);
 			}
 		} catch (err) {
 			consoleError(ProductProvider.TECHLAND, `Failed to scrape: ${err}`);
