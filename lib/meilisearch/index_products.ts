@@ -3,7 +3,7 @@ import { productsTable } from "../../src/db/schema/products";
 import { db } from "../db";
 import { meilisearch_client } from "./meilisearch_client";
 
-const BATCH = 1000;
+const BATCH = 500;
 export async function indexProducts() {
 	let offset = 0;
 	while (true) {
@@ -14,8 +14,17 @@ export async function indexProducts() {
 			.limit(BATCH)
 			.orderBy(sql`${productsTable.product_name} asc`);
 		if (!results || !results.length) break;
+		const updatedResults = results.map((item) => {
+			return {
+				...item,
+				product_price: Number(item.product_price),
+			};
+		});
 		// https://www.meilisearch.com/docs/getting_started/sdks/javascript
-		await meilisearch_client.index("products").addDocuments(results);
+		const task = await meilisearch_client
+			.index("products")
+			.addDocuments(updatedResults);
+		await meilisearch_client.tasks.waitForTask(task.taskUid, { timeout: 500 });
 		console.info(`Processed ${Math.round(offset / BATCH) + 1}`);
 		offset += BATCH;
 	}
