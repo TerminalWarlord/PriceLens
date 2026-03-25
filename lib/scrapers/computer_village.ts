@@ -104,13 +104,26 @@ export async function processComputerVillageProductUrl(productUrl: string) {
 
 export async function getComputerVillageProductDetails(url: string) {
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
-		const r = await proxyRequest(`${url}?limit=200&page=${page}&fq=1`);
+		const pageUrl = `${url}?limit=200&page=${page}&fq=1`;
+		const r = await proxyRequest(pageUrl);
 		if (r.status >= 400) break;
 		const $ = cheerio.load(r.data);
+		const productUrls = [];
 		for (const el of $(".main-products.product-grid").children().toArray()) {
+			const productUrl = $(el).find(".caption .name a").attr("href");
+			if (!productUrl) continue;
+			productUrls.push(productUrl);
+		}
+
+		if (productUrls.length === 0) {
+			consoleError(
+				ProductProvider.COMPUTER_VILLAGE,
+				`No items found on ${pageUrl}`,
+			);
+			return;
+		}
+		for (const productUrl of productUrls) {
 			try {
-				const productUrl = $(el).find(".caption .name a").attr("href");
-				if (!productUrl) continue;
 				await addItemToQueue(productUrl, ProductProvider.COMPUTER_VILLAGE);
 			} catch (err) {
 				consoleError(

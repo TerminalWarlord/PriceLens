@@ -116,6 +116,13 @@ export async function getTechlandProductDetails(url: string) {
 				if (!productUrl) continue;
 				productUrls.push(productUrl);
 			}
+			if (productUrls.length === 0) {
+				consoleError(
+					ProductProvider.TECHLAND,
+					`No items found on ${url}?page=${page}`,
+				);
+				return;
+			}
 			for (const productUrl of productUrls) {
 				try {
 					await addItemToQueue(productUrl, ProductProvider.TECHLAND);

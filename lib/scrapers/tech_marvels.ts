@@ -105,10 +105,20 @@ export async function getTechMarvelsProductDetails(url: string) {
 			const r = await proxyRequest(newUrl);
 			if (r.status >= 400) break;
 			const $ = cheerio.load(await r.data);
-
+			const productUrls = [];
 			for (const el of $(".product-wrapper").toArray()) {
 				const productUrl = $(el).find("a").attr("href");
 				if (!productUrl) continue;
+				productUrls.push(productUrl);
+			}
+			if (productUrls.length === 0) {
+				consoleError(
+					ProductProvider.TECH_MARVELS,
+					`No items found on ${newUrl}`,
+				);
+				return;
+			}
+			for (const productUrl of productUrls) {
 				try {
 					await addItemToQueue(productUrl, ProductProvider.TECH_MARVELS);
 				} catch (err) {

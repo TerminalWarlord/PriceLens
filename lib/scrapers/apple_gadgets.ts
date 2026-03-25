@@ -100,12 +100,26 @@ export async function processAppleGadgetsProductUrl(productUrl: string) {
 export async function getAppleGadgetsProductDetails(url: string) {
 	// https://www.applegadgetsbd.com/category/laptop-and-desktop?page=2
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
-		const r = await proxyRequest(url + "?page=" + page);
+		const pageUrl = url + "?page=" + page;
+		const r = await proxyRequest(pageUrl);
 		if (r.status >= 400) break;
 		const $ = cheerio.load(await r.data);
+		const productUrls = [];
 		for (const el of $("article").toArray()) {
 			const productUrl = $(el).find("a").first().attr("href");
 			if (!productUrl) continue;
+			productUrls.push(productUrl);
+		}
+
+		if (productUrls.length === 0) {
+			consoleError(
+				ProductProvider.APPLE_GADGETS,
+				`No items found on ${pageUrl}`,
+			);
+			return;
+		}
+
+		for (const productUrl of productUrls) {
 			try {
 				await addItemToQueue(productUrl, ProductProvider.APPLE_GADGETS);
 			} catch (err) {

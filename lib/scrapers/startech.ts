@@ -98,10 +98,8 @@ export async function getStartechProductDetails(url: string) {
 			`Scraping page ${page}/${MAX_PAGE_LIMIT}...`,
 		);
 		// filter_status=7 -> only shows in stock items
-		const r = await proxyRequest(
-			url + `?page=${page}&filter_status=7`,
-			Method.GET,
-		);
+		const pageUrl = url + `?page=${page}&filter_status=7`;
+		const r = await proxyRequest(pageUrl);
 		const data = await r.data;
 		const $ = cheerio.load(data);
 		const items = $(".container").find(".p-item");
@@ -109,7 +107,7 @@ export async function getStartechProductDetails(url: string) {
 		if (items.length === 0) {
 			consoleError(
 				ProductProvider.STARTECH,
-				`No more items found on page ${page}. Moving to next category.`,
+				`No more items found on page ${pageUrl}`,
 			);
 			return;
 		}
