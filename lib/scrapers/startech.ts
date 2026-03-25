@@ -16,8 +16,6 @@ import {
 import pLimit from "p-limit";
 import { addItemToQueue } from "../redis/add_item";
 
-const limit = pLimit(PLIMIT);
-
 export async function processStartechProductUrl(productUrl: string) {
 	consoleInfo(ProductProvider.STARTECH, `Scraping ${productUrl}`);
 	const r = await proxyRequest(productUrl);
@@ -108,7 +106,13 @@ export async function getStartechProductDetails(url: string) {
 		const $ = cheerio.load(data);
 		const items = $(".container").find(".p-item");
 
-		if (items.length === 0) return;
+		if (items.length === 0) {
+			consoleError(
+				ProductProvider.STARTECH,
+				`No more items found on page ${page}. Moving to next category.`,
+			);
+			return;
+		}
 		for (const el of items.children().toArray()) {
 			const productUrl = $(el).find(".p-item-name").find("a").attr("href");
 			if (!productUrl) continue;
@@ -130,16 +134,28 @@ export async function scrapeStartechCategories() {
 		const r = await proxyRequest(url, Method.GET);
 		const data = await r.data;
 		const $ = cheerio.load(data);
+		const navLinks = new Set<string>();
 		for (const el of $("a.nav-link").toArray()) {
 			const navLink = $(el).attr("href");
 			if (!navLink) continue;
-			try {
-				consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
-				await getStartechProductDetails(navLink);
-			} catch (err) {
-				consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
-			}
+			navLinks.add(navLink);
 		}
+		const categoryLimit = pLimit(PLIMIT);
+		const tasks = Array.from(navLinks).map((navLink) =>
+			categoryLimit(async () => {
+				try {
+					consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
+					await getStartechProductDetails(navLink);
+				} catch (err) {
+					consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
+				}
+			}),
+		);
+		await Promise.all(tasks);
+		consoleSuccess(
+			ProductProvider.STARTECH,
+			"Finished scraping all Startech categories.",
+		);
 	} catch (err) {
 		consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
 	}
