@@ -20,7 +20,7 @@ export async function isPageProcessed(pageUrl: string) {
 
 export async function markPageAsProcessed(pageUrl: string) {
 	const key = `pricelens:pages:${generateHash(pageUrl)}`;
-	return await redis_client.set(key, "1");
+	return await redis_client.set(key, "1", "EX", 900);
 }
 
 export async function addItemToQueue(

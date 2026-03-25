@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { proxyRequest } from "../utils/proxy_request";
+import { Method, proxyRequest } from "../utils/proxy_request";
 import { MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
 import { db } from "../db";
 import { productsTable } from "../../src/db/schema/products";
@@ -25,8 +25,14 @@ const BASE_URL = "https://www.applegadgetsbd.com";
 
 export async function processAppleGadgetsProductUrl(productUrl: string) {
 	try {
-		consoleInfo(ProductProvider.APPLE_GADGETS, `Scraping: ${productUrl}`);
-		const r = await proxyRequest(productUrl);
+		const updatedProductUrl = productUrl.includes("https://")
+			? productUrl
+			: BASE_URL + productUrl;
+		consoleInfo(
+			ProductProvider.APPLE_GADGETS,
+			`Scraping: ${updatedProductUrl}`,
+		);
+		const r = await proxyRequest(updatedProductUrl);
 		const data = await r.data;
 		const $ = cheerio.load(data);
 		const productImage = $('meta[property="og:image"]')
@@ -47,7 +53,7 @@ export async function processAppleGadgetsProductUrl(productUrl: string) {
 			!productName ||
 			!productImage ||
 			!productDescription ||
-			!productUrl ||
+			!updatedProductUrl ||
 			isNaN(productPrice)
 		) {
 			return;
@@ -57,7 +63,7 @@ export async function processAppleGadgetsProductUrl(productUrl: string) {
 			.from(productsTable)
 			.where(
 				and(
-					eq(productsTable.product_url, productUrl),
+					eq(productsTable.product_url, updatedProductUrl),
 					eq(productsTable.product_provider, ProductProvider.APPLE_GADGETS),
 				),
 			);
@@ -78,7 +84,7 @@ export async function processAppleGadgetsProductUrl(productUrl: string) {
 			.insert(productsTable)
 			.values({
 				product_name: productName,
-				product_url: productUrl,
+				product_url: updatedProductUrl,
 				product_price: BigInt(productPrice),
 				product_description: productDescription.trim(),
 				product_image: uploadedImagePath,
@@ -93,7 +99,7 @@ export async function processAppleGadgetsProductUrl(productUrl: string) {
 			product_id: result.id,
 			provider: ProductProvider.APPLE_GADGETS,
 		});
-		consoleSuccess(ProductProvider.APPLE_GADGETS, `Added ${productUrl}`);
+		consoleSuccess(ProductProvider.APPLE_GADGETS, `Added ${updatedProductUrl}`);
 	} catch (err) {
 		consoleError(
 			ProductProvider.APPLE_GADGETS,
@@ -113,14 +119,14 @@ export async function getAppleGadgetsProductDetails(url: string) {
 			);
 			continue;
 		}
-		const r = await proxyRequest(pageUrl);
+		const r = await proxyRequest(pageUrl, Method.GET, 40000);
 		if (r.status >= 400) break;
 		const $ = cheerio.load(await r.data);
 		const productUrls = [];
 		for (const el of $("article").toArray()) {
 			const productUrl = $(el).find("a").first().attr("href");
 			if (!productUrl) continue;
-			productUrls.push(productUrl);
+			productUrls.push(BASE_URL + productUrl);
 		}
 
 		if (productUrls.length === 0) {
