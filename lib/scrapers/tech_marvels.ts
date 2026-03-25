@@ -129,30 +129,37 @@ export async function getTechMarvelsProductDetails(url: string) {
 }
 
 export async function scrapeTechMarvelsCategories() {
-	const r = await proxyRequest("https://techmarvels.com.bd/");
-	const $ = cheerio.load(await r.data);
-	const navLinks = [];
-	for (const el of $("#menu-sticky-navigation-mega-electronics")
-		.children()
-		.toArray()) {
-		const navLink = $(el).find("a").attr("href");
-		if (!navLink) continue;
-		navLinks.push(navLink);
+	try {
+
+		const r = await proxyRequest("https://techmarvels.com.bd/");
+		const $ = cheerio.load(await r.data);
+		const navLinks = [];
+		for (const el of $("#menu-sticky-navigation-mega-electronics")
+			.children()
+			.toArray()) {
+			const navLink = $(el).find("a").attr("href");
+			if (!navLink) continue;
+			navLinks.push(navLink);
+		}
+		consoleSuccess(
+			ProductProvider.TECH_MARVELS,
+			`Scraped Categories: ${navLinks}`,
+		);
+		await Promise.all(
+			navLinks.map((navLink) =>
+				limit(async () => {
+					try {
+						consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${navLink}`);
+						await getTechMarvelsProductDetails(navLink);
+					} catch (err) {
+						consoleError(ProductProvider.TECH_MARVELS, `Failed to scrape ${err}`);
+					}
+				}),
+			),
+		);
 	}
-	consoleSuccess(
-		ProductProvider.TECH_MARVELS,
-		`Scraped Categories: ${navLinks}`,
-	);
-	await Promise.all(
-		navLinks.map((navLink) =>
-			limit(async () => {
-				try {
-					consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${navLink}`);
-					await getTechMarvelsProductDetails(navLink);
-				} catch (err) {
-					consoleError(ProductProvider.TECH_MARVELS, `Failed to scrape ${err}`);
-				}
-			}),
-		),
-	);
+	catch (err) {
+		consoleError(ProductProvider.TECH_MARVELS, `Failed to scrape ${err}`);
+	}
+
 }

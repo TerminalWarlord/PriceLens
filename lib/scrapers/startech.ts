@@ -76,7 +76,7 @@ export async function processStartechProductUrl(productUrl: string) {
 		.values({
 			product_name: productName,
 			product_url: productUrl,
-			product_price: productPrice,
+			product_price: BigInt(productPrice),
 			product_description: productDescription.trim(),
 			product_image: uploadedImagePath,
 			product_provider: ProductProvider.STARTECH,
@@ -86,7 +86,7 @@ export async function processStartechProductUrl(productUrl: string) {
 	await db.insert(productPricesTable).values({
 		name: productName,
 		description: productDescription.trim(),
-		price: productPrice,
+		price: BigInt(productPrice),
 		product_id: result.id,
 		provider: ProductProvider.STARTECH,
 	});
@@ -125,26 +125,32 @@ export async function getStartechProductDetails(url: string) {
 }
 
 export async function scrapeStartechCategories() {
-	const url = "https://www.startech.com.bd/";
-	const r = await proxyRequest(url, Method.GET);
-	const data = await r.data;
-	const $ = cheerio.load(data);
-	const navLinks = [];
-	for (const el of $("a.nav-link").toArray()) {
-		const navLink = $(el).attr("href");
-		if (!navLink) continue;
-		navLinks.push(navLink);
+	try {
+		const url = "https://www.startech.com.bd/";
+		const r = await proxyRequest(url, Method.GET);
+		const data = await r.data;
+		const $ = cheerio.load(data);
+		const navLinks = [];
+		for (const el of $("a.nav-link").toArray()) {
+			const navLink = $(el).attr("href");
+			if (!navLink) continue;
+			navLinks.push(navLink);
+		}
+		await Promise.all(
+			navLinks.map((navLink) =>
+				limit(async () => {
+					try {
+						consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
+						await getStartechProductDetails(navLink);
+					} catch (err) {
+						consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
+					}
+				}),
+			),
+		);
 	}
-	await Promise.all(
-		navLinks.map((navLink) =>
-			limit(async () => {
-				try {
-					consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
-					await getStartechProductDetails(navLink);
-				} catch (err) {
-					consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
-				}
-			}),
-		),
-	);
+	catch (err) {
+		consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
+	}
+
 }

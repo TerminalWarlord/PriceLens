@@ -9,7 +9,11 @@ export enum Method {
 	PUT = "PUT",
 }
 
-export async function proxyRequest(url: string, method: Method = Method.GET, timeout: number=10) {
+export async function proxyRequest(
+	url: string,
+	method: Method = Method.GET,
+	timeout: number = 20000,
+) {
 	const agent = new HttpsProxyAgent(getProxy());
 	const res = await axios(url, {
 		timeout,

@@ -134,30 +134,39 @@ export async function getTechlandProductDetails(url: string) {
 }
 
 export async function scrapeTechlandCategories() {
-	const r = await proxyRequest(
-		"https://www.techlandbd.com/ajax/header-navigation",
-	);
-	const data = await r.data;
-	const $ = cheerio.load(data);
-	const navLinks = [];
-	for (const el of $("a").toArray()) {
-		const navLink = $(el).attr("href");
-		if (!navLink || navLink === "#") continue;
-		navLinks.push(navLink);
+	try {
+
+		const r = await proxyRequest(
+			"https://www.techlandbd.com/ajax/header-navigation",
+		);
+		const data = await r.data;
+		const $ = cheerio.load(data);
+		const navLinks = [];
+		for (const el of $("a").toArray()) {
+			const navLink = $(el).attr("href");
+			if (!navLink || navLink === "#") continue;
+			navLinks.push(navLink);
+		}
+		await Promise.all(
+			navLinks.map((navLink) =>
+				limit(async () => {
+					consoleInfo(ProductProvider.TECHLAND, `Scraping ${navLink}...`);
+					try {
+						await getTechlandProductDetails(navLink);
+					} catch (err) {
+						consoleError(
+							ProductProvider.TECHLAND,
+							`Failed to scrape ${navLink} : ${err}`,
+						);
+					}
+				}),
+			),
+		);
 	}
-	await Promise.all(
-		navLinks.map((navLink) =>
-			limit(async () => {
-				consoleInfo(ProductProvider.TECHLAND, `Scraping ${navLink}...`);
-				try {
-					await getTechlandProductDetails(navLink);
-				} catch (err) {
-					consoleError(
-						ProductProvider.TECHLAND,
-						`Failed to scrape ${navLink} : ${err}`,
-					);
-				}
-			}),
-		),
-	);
+	catch (err) {
+		consoleError(
+			ProductProvider.TECHLAND,
+			`Failed to scrape ${err}`,
+		);
+	}
 }

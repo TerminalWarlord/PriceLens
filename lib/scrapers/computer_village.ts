@@ -125,30 +125,38 @@ export async function getComputerVillageProductDetails(url: string) {
 }
 
 export async function scrapeComputerVillageCategories() {
-	const r = await proxyRequest("https://www.computervillage.com.bd/");
-	const $ = cheerio.load(r.data);
-	const navLinks = [];
-	for (const el of $(".main-menu .j-menu").children().toArray()) {
-		const navLink = $(el).find("a").attr("href");
-		if (!navLink) continue;
-		navLinks.push(navLink);
+	try {
+
+
+		const r = await proxyRequest("https://www.computervillage.com.bd/");
+		const $ = cheerio.load(r.data);
+		const navLinks = [];
+		for (const el of $(".main-menu .j-menu").children().toArray()) {
+			const navLink = $(el).find("a").attr("href");
+			if (!navLink) continue;
+			navLinks.push(navLink);
+		}
+		await Promise.all(
+			navLinks.map((navLink) =>
+				limit(async () => {
+					try {
+						consoleInfo(
+							ProductProvider.COMPUTER_VILLAGE,
+							`Scraping : ${navLink}`,
+						);
+						await getComputerVillageProductDetails(navLink);
+					} catch (err) {
+						consoleError(
+							ProductProvider.COMPUTER_VILLAGE,
+							`Failed to scrape : ${err}`,
+						);
+					}
+				}),
+			),
+		);
 	}
-	await Promise.all(
-		navLinks.map((navLink) =>
-			limit(async () => {
-				try {
-					consoleInfo(
-						ProductProvider.COMPUTER_VILLAGE,
-						`Scraping : ${navLink}`,
-					);
-					await getComputerVillageProductDetails(navLink);
-				} catch (err) {
-					consoleError(
-						ProductProvider.COMPUTER_VILLAGE,
-						`Failed to scrape : ${err}`,
-					);
-				}
-			}),
-		),
-	);
+	catch (err) {
+		consoleError(ProductProvider.COMPUTER_VILLAGE, `Failed to scrape ${err}`);
+
+	}
 }
