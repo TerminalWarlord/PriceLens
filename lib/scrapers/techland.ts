@@ -22,90 +22,100 @@ import {
 } from "../redis/redis_helper";
 
 export async function processTechLandProductUrl(productUrl: string) {
-	consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
-	const r = await proxyRequest(productUrl);
-	const $ = cheerio.load(await r.data);
-	consoleInfo(ProductProvider.TECHLAND, `Getting product info: ${productUrl}`);
-	const productImage = $(".container").find("#main-image").attr("src");
-	const productName = $(".container .order-1")
-		.find(".break-words")
-		.eq(0)
-		.text()
-		.trim();
-	let productDescription = "";
-	for (const el of $(".container .order-1")
-		.find(".break-words")
-		.eq(1)
-		.children()
-		.toArray()) {
-		productDescription += $(el).text().trim() + "\n";
-	}
-	const productPrice =
-		Number(
-			$(".container .order-1")
-				.find(
-					".text-lg.sm\\:text-xl.lg\\:text-2xl.font-bold.text-\\[\\#1c4289\\]",
-				)
-				.text()
-				.trim()
-				.replace(/৳/g, "")
-				.replace(/,/g, ""),
-		) * 100;
-
-	if (
-		!productName ||
-		!productImage ||
-		!productDescription ||
-		!productUrl ||
-		isNaN(productPrice)
-	) {
-		consoleError(ProductProvider.TECHLAND, `Invalid data: ${productUrl}`);
-		return;
-	}
-	consoleLogProduct(ProductProvider.TECHLAND, {
-		name: productName,
-		description: productDescription.trim(),
-		image: productImage,
-		price: productPrice,
-	});
-	const item = await db
-		.select()
-		.from(productsTable)
-		.where(
-			and(
-				eq(productsTable.product_url, productUrl),
-				eq(productsTable.product_provider, ProductProvider.TECHLAND),
-			),
+	try {
+		consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
+		const r = await proxyRequest(productUrl);
+		const $ = cheerio.load(await r.data);
+		consoleInfo(
+			ProductProvider.TECHLAND,
+			`Getting product info: ${productUrl}`,
 		);
-	if (item && item.length) {
-		consoleInfo(ProductProvider.TECHLAND, "Item exists!");
-		return;
-	}
-	consoleInfo(ProductProvider.TECHLAND, `Adding ${productUrl}...`);
-	const uploadedImagePath = await uploadImage(
-		productImage,
-		ProductProvider.TECHLAND,
-	);
-	const [result] = await db
-		.insert(productsTable)
-		.values({
-			product_name: productName,
-			product_price: BigInt(productPrice),
-			product_description: productDescription.trim(),
-			product_image: uploadedImagePath,
-			product_url: productUrl,
-			product_provider: ProductProvider.TECHLAND,
-		})
-		.returning({ id: productsTable.id });
+		const productImage = $(".container").find("#main-image").attr("src");
+		const productName = $(".container .order-1")
+			.find(".break-words")
+			.eq(0)
+			.text()
+			.trim();
+		let productDescription = "";
+		for (const el of $(".container .order-1")
+			.find(".break-words")
+			.eq(1)
+			.children()
+			.toArray()) {
+			productDescription += $(el).text().trim() + "\n";
+		}
+		const productPrice =
+			Number(
+				$(".container .order-1")
+					.find(
+						".text-lg.sm\\:text-xl.lg\\:text-2xl.font-bold.text-\\[\\#1c4289\\]",
+					)
+					.text()
+					.trim()
+					.replace(/৳/g, "")
+					.replace(/,/g, ""),
+			) * 100;
 
-	await db.insert(productPricesTable).values({
-		name: productName,
-		description: productDescription.trim(),
-		price: BigInt(productPrice),
-		product_id: result.id,
-		provider: ProductProvider.TECHLAND,
-	});
-	consoleSuccess(ProductProvider.TECHLAND, `Added ${productUrl}`);
+		if (
+			!productName ||
+			!productImage ||
+			!productDescription ||
+			!productUrl ||
+			isNaN(productPrice)
+		) {
+			consoleError(ProductProvider.TECHLAND, `Invalid data: ${productUrl}`);
+			return;
+		}
+		consoleLogProduct(ProductProvider.TECHLAND, {
+			name: productName,
+			description: productDescription.trim(),
+			image: productImage,
+			price: productPrice,
+		});
+		const item = await db
+			.select()
+			.from(productsTable)
+			.where(
+				and(
+					eq(productsTable.product_url, productUrl),
+					eq(productsTable.product_provider, ProductProvider.TECHLAND),
+				),
+			);
+		if (item && item.length) {
+			consoleInfo(ProductProvider.TECHLAND, "Item exists!");
+			return;
+		}
+		consoleInfo(ProductProvider.TECHLAND, `Adding ${productUrl}...`);
+		const uploadedImagePath = await uploadImage(
+			productImage,
+			ProductProvider.TECHLAND,
+		);
+		const [result] = await db
+			.insert(productsTable)
+			.values({
+				product_name: productName,
+				product_price: BigInt(productPrice),
+				product_description: productDescription.trim(),
+				product_image: uploadedImagePath,
+				product_url: productUrl,
+				product_provider: ProductProvider.TECHLAND,
+			})
+			.returning({ id: productsTable.id });
+
+		await db.insert(productPricesTable).values({
+			name: productName,
+			description: productDescription.trim(),
+			price: BigInt(productPrice),
+			product_id: result.id,
+			provider: ProductProvider.TECHLAND,
+		});
+		consoleSuccess(ProductProvider.TECHLAND, `Added ${productUrl}`);
+	} catch (err) {
+		consoleError(
+			ProductProvider.TECHLAND,
+			`Failed to scrape ${productUrl}: ${err}`,
+		);
+	}
 }
 
 export async function getTechlandProductDetails(url: string) {

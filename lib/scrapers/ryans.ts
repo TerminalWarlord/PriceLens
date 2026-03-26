@@ -7,7 +7,7 @@ import { productsTable } from "../../src/db/schema/products";
 import { ProductProvider } from "../../types/product_type";
 import { db } from "../db";
 import { productPricesTable } from "../../src/db/schema/product_prices";
-import { MAX_ITEM_LIMIT, MAX_PAGE_LIMIT } from "./scraper_config";
+import { MAX_ITEM_LIMIT, MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
 import { uploadImage } from "../r2/upload_image";
 import {
 	consoleError,
@@ -15,6 +15,12 @@ import {
 	consoleLogProduct,
 	consoleSuccess,
 } from "./debugger";
+import pLimit from "p-limit";
+import {
+	isCategoryProcessed,
+	isPageProcessed,
+	markPageAsProcessed,
+} from "../redis/redis_helper";
 
 chromium.use(stealth());
 const browser = await chromium.launch({
@@ -29,8 +35,16 @@ export async function getRyansProductDetails(
 	// https://www.ryans.com/category/laptop-all-laptop?limit=5000&sort=D&osp=1&st=0
 	const page = await browserContext.newPage();
 	for (let p = 1; p < MAX_PAGE_LIMIT; p++) {
+		const pageUrl = `${url}?limit=${MAX_ITEM_LIMIT}&page=${p}`;
 		try {
-			await page.goto(`${url}?limit=${MAX_ITEM_LIMIT}&page=${p}`, {
+			if (await isPageProcessed(pageUrl)) {
+				consoleError(
+					ProductProvider.RYANS,
+					`${pageUrl} has already been processed`,
+				);
+				continue;
+			}
+			await page.goto(pageUrl, {
 				waitUntil: "domcontentloaded",
 			});
 
@@ -131,6 +145,7 @@ export async function getRyansProductDetails(
 		} catch (err) {
 			consoleError(ProductProvider.RYANS, `Failed at page ${p}: ${err}`);
 		}
+		await markPageAsProcessed(pageUrl);
 	}
 	await page.close();
 }
@@ -156,22 +171,46 @@ export async function scrapeRyansCategories() {
 	const data = await page.content();
 	const $ = cheerio.load(data);
 	const allMenu = $("ul.list-unstyled");
+	const navLinks = new Set<string>();
 	for (const el of allMenu.toArray()) {
 		const navLink = $(el).children();
 		for (const li of navLink.toArray()) {
 			const item = $(li).find("a").attr("href");
 			if (!item || item === "#") continue;
+			navLinks.add(item);
+		}
+	}
+	const categoryLimit = pLimit(PLIMIT);
+	const tasks = Array.from(navLinks).map((navLink) =>
+		categoryLimit(async () => {
 			try {
-				consoleInfo(ProductProvider.RYANS, `Scraping : ${item}`);
-				await getRyansProductDetails(item, context);
+				const isProcessed = await isCategoryProcessed(
+					navLink,
+					ProductProvider.RYANS,
+				);
+				if (isProcessed) {
+					consoleError(
+						ProductProvider.RYANS,
+						`Categories is already processed. Skipping...`,
+					);
+					return;
+				}
+				consoleInfo(ProductProvider.RYANS, `Scraping : ${navLink}`);
+				await getRyansProductDetails(navLink, context);
 			} catch (err) {
 				consoleError(
 					ProductProvider.RYANS,
-					`Failed to scrape ${item} : ${err}`,
+					`Failed to scrape ${navLink} : ${err}`,
 				);
 			}
-		}
-	}
+		}),
+	);
+
+	await Promise.all(tasks);
+	consoleSuccess(
+		ProductProvider.RYANS,
+		`Successfully processed all categories`,
+	);
 	await page.close();
 	await browser.close();
 }

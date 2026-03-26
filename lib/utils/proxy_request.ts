@@ -12,7 +12,7 @@ export enum Method {
 export async function proxyRequest(
 	url: string,
 	method: Method = Method.GET,
-	timeout: number = 20000,
+	timeout: number = 100000,
 ) {
 	const agent = new HttpsProxyAgent(getProxy());
 	const res = await axios(url, {
