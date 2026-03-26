@@ -24,7 +24,9 @@ export async function indexProducts() {
 		const task = await meilisearch_client
 			.index("products")
 			.addDocuments(updatedResults);
-		await meilisearch_client.tasks.waitForTask(task.taskUid, { timeout: 500 });
+		await meilisearch_client.tasks.waitForTask(task.taskUid, {
+			timeout: 10000,
+		});
 		console.info(`Processed ${Math.round(offset / BATCH) + 1}`);
 		offset += BATCH;
 	}
