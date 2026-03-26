@@ -180,7 +180,7 @@ export async function scrapeRyansCategories() {
 			navLinks.add(item);
 		}
 	}
-	const categoryLimit = pLimit(PLIMIT);
+	const categoryLimit = pLimit(2);
 	const tasks = Array.from(navLinks).map((navLink) =>
 		categoryLimit(async () => {
 			try {
