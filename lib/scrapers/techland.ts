@@ -61,7 +61,8 @@ export async function processTechLandProductUrl(productUrl: string) {
 			!productImage ||
 			!productDescription ||
 			!productUrl ||
-			isNaN(productPrice)
+			isNaN(productPrice) ||
+			productPrice === 0
 		) {
 			consoleError(ProductProvider.TECHLAND, `Invalid data: ${productUrl}`);
 			return;
