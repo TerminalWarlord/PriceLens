@@ -44,6 +44,21 @@ export async function processTechLandProductUrl(productUrl: string) {
 			.toArray()) {
 			productDescription += $(el).text().trim() + "\n";
 		}
+		const isInStock =
+			$(
+				".inline-block.border.border-gray-300.rounded.px-2.sm\\:px-3.py-1.text-xs.sm\\:text-sm",
+			)
+				.eq(0)
+				.find("span")
+				.text()
+				.trim() === "In Stock";
+		if (!isInStock) {
+			consoleError(
+				ProductProvider.TECHLAND,
+				`${productUrl} Item is not in stock`,
+			);
+			return;
+		}
 		const productPrice =
 			Number(
 				$(".container .order-1")
