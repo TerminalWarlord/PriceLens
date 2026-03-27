@@ -13,3 +13,4 @@ async function populateQueue() {
 }
 
 await populateQueue();
+await redis_client?.quit();

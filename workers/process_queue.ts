@@ -5,7 +5,6 @@ import pLimit from "p-limit";
 import { processAppleGadgetsProductUrl } from "../lib/scrapers/apple_gadgets";
 import { processTechLandProductUrl } from "../lib/scrapers/techland";
 import { processTechMarvelsProductUrl } from "../lib/scrapers/tech_marvels";
-import { processComputerVillageProductUrl } from "../lib/scrapers/computer_village";
 import { PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
 
 async function processQueue() {
@@ -33,8 +32,6 @@ async function processQueue() {
 						await processTechLandProductUrl(item.productUrl);
 					} else if (item.provider === ProductProvider.TECH_MARVELS) {
 						await processTechMarvelsProductUrl(item.productUrl);
-					} else if (item.provider === ProductProvider.COMPUTER_VILLAGE) {
-						await processComputerVillageProductUrl(item.productUrl);
 					}
 				}),
 			),
@@ -42,3 +39,4 @@ async function processQueue() {
 	}
 }
 await processQueue();
+await redis_client.quit();

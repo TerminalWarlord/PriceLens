@@ -33,6 +33,7 @@ export async function processStartechProductUrl(productUrl: string) {
 				.find(".product-info-data.product-price")
 				.text()
 				.trim()
+				.split("৳")[0]
 				.replace(/,/g, "")
 				.replace(/৳/g, ""),
 		) * 100;
@@ -48,10 +49,18 @@ export async function processStartechProductUrl(productUrl: string) {
 		!productImage ||
 		!productDescription ||
 		!productUrl ||
-		isNaN(productPrice)
+		isNaN(productPrice) ||
+		productPrice === 0
 	) {
+		consoleError(ProductProvider.STARTECH, `${productUrl} is missing metadata`);
 		return;
 	}
+	consoleLogProduct(ProductProvider.STARTECH, {
+		name: productName,
+		description: productDescription.trim(),
+		image: productImage,
+		price: productPrice,
+	});
 	const item = await db
 		.select()
 		.from(productsTable)
@@ -68,12 +77,7 @@ export async function processStartechProductUrl(productUrl: string) {
 		productImage,
 		ProductProvider.STARTECH,
 	);
-	consoleLogProduct(ProductProvider.STARTECH, {
-		name: productName,
-		description: productDescription.trim(),
-		image: productImage,
-		price: productPrice,
-	});
+
 	const [result] = await db
 		.insert(productsTable)
 		.values({

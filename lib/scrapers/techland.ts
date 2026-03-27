@@ -138,8 +138,8 @@ export async function getTechlandProductDetails(url: string) {
 	// https://www.techlandbd.com/shop-laptop-computer/brand-laptops
 	for (let page = 1; page < MAX_ITEM_LIMIT; page++) {
 		try {
-			consoleInfo(ProductProvider.TECHLAND, `PAGE ${page}...`);
 			const pageUrl = `${url}?page=${page}`;
+			consoleInfo(ProductProvider.TECHLAND, `Browsing : ${pageUrl}`);
 			if (await isPageProcessed(pageUrl)) {
 				consoleError(
 					ProductProvider.TECHLAND,
@@ -152,7 +152,13 @@ export async function getTechlandProductDetails(url: string) {
 			const productUrls: string[] = [];
 			for (const el of $("#product-container").children().toArray()) {
 				const productUrl = $(el).find("a").first().attr("href");
-				if (!productUrl) continue;
+				const isAvailable =
+					$(el)
+						.find(".text-xs.text-green-700.font-medium")
+						.text()
+						.trim()
+						.toLocaleLowerCase() === "in stock";
+				if (!productUrl || !isAvailable) continue;
 				productUrls.push(productUrl);
 			}
 			if (productUrls.length === 0) {

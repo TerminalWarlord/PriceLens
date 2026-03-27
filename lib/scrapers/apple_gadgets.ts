@@ -40,7 +40,7 @@ export async function processAppleGadgetsProductUrl(productUrl: string) {
 			?.replace("/large/", "/medium/");
 		const productName = $("main section h1").text();
 		const priceMatch = data.match(
-			/\\"price\\"\s*:\s*\{\\"value\\"\s*:\s*(\d+)/,
+			/\\"variants\\"[\s\S]*?\\"price\\"\s*:\s*\{\\"value\\"\s*:\s*(\d+)/,
 		);
 		let productDescription = "";
 		for (const el of $("#tabSpecification table tbody").children()) {
@@ -54,10 +54,21 @@ export async function processAppleGadgetsProductUrl(productUrl: string) {
 			!productImage ||
 			!productDescription ||
 			!updatedProductUrl ||
-			isNaN(productPrice)
+			isNaN(productPrice) ||
+			productPrice === 0
 		) {
+			consoleError(
+				ProductProvider.APPLE_GADGETS,
+				`${productUrl} is missing metadata`,
+			);
 			return;
 		}
+		consoleLogProduct(ProductProvider.APPLE_GADGETS, {
+			name: productName,
+			description: productDescription.trim(),
+			image: productImage,
+			price: productPrice,
+		});
 		const item = await db
 			.select()
 			.from(productsTable)
@@ -74,12 +85,7 @@ export async function processAppleGadgetsProductUrl(productUrl: string) {
 			productImage,
 			ProductProvider.APPLE_GADGETS,
 		);
-		consoleLogProduct(ProductProvider.APPLE_GADGETS, {
-			name: productName,
-			description: productDescription.trim(),
-			image: productImage,
-			price: productPrice,
-		});
+
 		const [result] = await db
 			.insert(productsTable)
 			.values({
