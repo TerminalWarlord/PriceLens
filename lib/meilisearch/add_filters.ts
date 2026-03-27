@@ -9,6 +9,9 @@ export async function addSortingFilter() {
 			"created_at",
 			"updated_at",
 		]);
+	await meilisearch_client
+		.index("products")
+		.updateFilterableAttributes(["product_price", "product_provider"]);
 }
 
 (async () => await addSortingFilter())();
