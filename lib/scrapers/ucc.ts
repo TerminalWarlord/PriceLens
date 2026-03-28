@@ -130,7 +130,7 @@ async function getUCCProductDetails(url: string) {
 			}
 			if (productUrls.length === 0) {
 				consoleError(ProductProvider.UCC, `No more items left ${pageUrl}`);
-				continue;
+				break;
 			}
 
 			let processed = 0;
