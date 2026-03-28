@@ -6,6 +6,7 @@ import { processAppleGadgetsProductUrl } from "../lib/scrapers/apple_gadgets";
 import { processTechLandProductUrl } from "../lib/scrapers/techland";
 import { processTechMarvelsProductUrl } from "../lib/scrapers/tech_marvels";
 import { PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
+import { processItemWithTimeout } from "../lib/utils/process_helper";
 
 async function processQueue() {
 	const limit = pLimit(PRODUCT_PLIMIT);
@@ -24,14 +25,26 @@ async function processQueue() {
 		await Promise.all(
 			jobs.map((item) =>
 				limit(async () => {
-					if (item.provider === ProductProvider.STARTECH) {
-						await processStartechProductUrl(item.productUrl);
-					} else if (item.provider === ProductProvider.APPLE_GADGETS) {
-						await processAppleGadgetsProductUrl(item.productUrl);
-					} else if (item.provider === ProductProvider.TECHLAND) {
-						await processTechLandProductUrl(item.productUrl);
-					} else if (item.provider === ProductProvider.TECH_MARVELS) {
-						await processTechMarvelsProductUrl(item.productUrl);
+					try {
+						if (item.provider === ProductProvider.STARTECH) {
+							await processItemWithTimeout(
+								processStartechProductUrl(item.productUrl),
+							);
+						} else if (item.provider === ProductProvider.APPLE_GADGETS) {
+							await processItemWithTimeout(
+								processAppleGadgetsProductUrl(item.productUrl),
+							);
+						} else if (item.provider === ProductProvider.TECHLAND) {
+							await processItemWithTimeout(
+								processTechLandProductUrl(item.productUrl),
+							);
+						} else if (item.provider === ProductProvider.TECH_MARVELS) {
+							await processItemWithTimeout(
+								processTechMarvelsProductUrl(item.productUrl),
+							);
+						}
+					} catch (err) {
+						console.error(`Job failed : ${err}`);
 					}
 				}),
 			),
