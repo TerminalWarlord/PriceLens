@@ -1,6 +1,5 @@
-import { HttpsProxyAgent } from "https-proxy-agent";
-import { getProxy } from "./get_proxy";
 import axios from "axios";
+import { proxy_pool } from "./get_proxy";
 
 export enum Method {
 	GET = "GET",
@@ -14,13 +13,19 @@ export async function proxyRequest(
 	method: Method = Method.GET,
 	timeout: number = 100000,
 ) {
-	const agent = new HttpsProxyAgent(getProxy());
-	const res = await axios(url, {
-		timeout,
-		method,
-		httpsAgent: agent,
-		proxy: false,
-		validateStatus: () => true,
-	});
-	return res;
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), timeout);
+	const agent = proxy_pool.getProxy();
+	try {
+		const res = await axios(url, {
+			method,
+			signal: controller.signal,
+			httpsAgent: agent,
+			proxy: false,
+			validateStatus: () => true,
+		});
+		return res;
+	} finally {
+		clearTimeout(timeoutId);
+	}
 }
