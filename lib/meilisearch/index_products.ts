@@ -31,7 +31,3 @@ export async function indexProducts() {
 		offset += BATCH;
 	}
 }
-
-(async () => {
-	await indexProducts();
-})();

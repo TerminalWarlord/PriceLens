@@ -11,7 +11,7 @@ export const getSearchController = async (c: Context) => {
 		limit: z.coerce.number().min(1).max(20).default(20),
 		offset: z.coerce.number().min(0).default(0),
 		query: z.string().optional(),
-		sortBy: z.enum(SortBy).default(SortBy.PRODUCT_PRICE),
+		sortBy: z.enum(SortBy).default(SortBy.RELEVANCE),
 		sortOrder: z.enum(["ASC", "DESC"]).default("ASC"),
 		minPrice: z.coerce.number().optional(),
 		maxPrice: z.coerce.number().optional(),
@@ -85,10 +85,14 @@ export const getSearchController = async (c: Context) => {
 			`product_provider IN [${providers.map((p) => `"${p}"`).join(",")}]`,
 		);
 	}
+	const sortOptions =
+		sortBy === SortBy.RELEVANCE
+			? undefined
+			: [`${sortBy}:${sortOrder.toLowerCase()}`];
 	const results = await meilisearch_client.index("products").search(query, {
 		offset,
 		limit: limit + 1,
-		sort: [`${sortBy}:${sortOrder.toLowerCase()}`],
+		sort: sortOptions,
 		filter: filters.length ? filters.join(" AND ") : undefined,
 	});
 	await redis_client.set(
