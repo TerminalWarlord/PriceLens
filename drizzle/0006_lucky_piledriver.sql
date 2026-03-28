@@ -1,0 +1,1 @@
+ALTER TYPE "public"."product_provider" ADD VALUE 'UCC';

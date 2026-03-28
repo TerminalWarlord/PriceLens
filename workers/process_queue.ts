@@ -7,6 +7,7 @@ import { processTechLandProductUrl } from "../lib/scrapers/techland";
 import { processTechMarvelsProductUrl } from "../lib/scrapers/tech_marvels";
 import { PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
 import { processItemWithTimeout } from "../lib/utils/process_helper";
+import { processUCCProductUrl } from "../lib/scrapers/ucc";
 
 async function processQueue() {
 	const limit = pLimit(PRODUCT_PLIMIT);
@@ -41,6 +42,10 @@ async function processQueue() {
 						} else if (item.provider === ProductProvider.TECH_MARVELS) {
 							await processItemWithTimeout(
 								processTechMarvelsProductUrl(item.productUrl),
+							);
+						} else if (item.provider === ProductProvider.UCC) {
+							await processItemWithTimeout(
+								processUCCProductUrl(item.productUrl),
 							);
 						}
 					} catch (err) {

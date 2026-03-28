@@ -8,4 +8,5 @@ export const ProductProvider = pgEnum("product_provider", [
 	"TECH_MARVELS",
 	"VERTECH",
 	"APPLE_GADGETS",
+	"UCC",
 ]);

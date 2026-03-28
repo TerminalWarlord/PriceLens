@@ -3,8 +3,11 @@ import { scrapeComputerVillageCategories } from "../lib/scrapers/computer_villag
 import { scrapeStartechCategories } from "../lib/scrapers/startech";
 import { scrapeTechMarvelsCategories } from "../lib/scrapers/tech_marvels";
 import { scrapeTechlandCategories } from "../lib/scrapers/techland";
+import { scrapeUCCCategories } from "../lib/scrapers/ucc";
+import { redis_client } from "../lib/redis/redis_client";
 
 async function populateQueue() {
+	await scrapeUCCCategories();
 	await scrapeStartechCategories();
 	await scrapeTechlandCategories();
 	await scrapeComputerVillageCategories();
@@ -13,4 +16,4 @@ async function populateQueue() {
 }
 
 await populateQueue();
-await redis_client?.quit();
+await redis_client.quit();

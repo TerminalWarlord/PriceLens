@@ -43,6 +43,13 @@
 			"when": 1774429032963,
 			"tag": "0005_elite_stephen_strange",
 			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1774696517726,
+			"tag": "0006_lucky_piledriver",
+			"breakpoints": true
 		}
 	]
 }
