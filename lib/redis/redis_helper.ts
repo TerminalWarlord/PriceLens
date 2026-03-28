@@ -6,10 +6,14 @@ export async function isCategoryProcessed(
 	categoryUrl: string,
 	provider: ProductProvider,
 ) {
-	const exists = await redis_client.sadd(
-		`pricelens_queue:categories:${provider}`,
-		categoryUrl,
-	);
+	const key = `pricelens_queue:categories:${provider}`;
+	const exists = await redis_client.sadd(key, categoryUrl);
+	if (exists === 1) {
+		const ttl = await redis_client.ttl(key);
+		if (ttl === -1) {
+			await redis_client.expire(key, 60 * 60 * 24 * 7);
+		}
+	}
 	return exists === 1 ? false : true;
 }
 

@@ -1,4 +1,5 @@
 export enum ProductProvider {
+	UCC = "UCC",
 	STARTECH = "STARTECH",
 	RYANS = "RYANS",
 	TECHLAND = "TECHLAND",
