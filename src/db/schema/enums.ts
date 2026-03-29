@@ -9,4 +9,9 @@ export const ProductProvider = pgEnum("product_provider", [
 	"VERTECH",
 	"APPLE_GADGETS",
 	"UCC",
+	"DAZZLE",
+	"SKYLANDBD",
+	"POTAKAIT",
+	"ULTRATECH",
+	"VIBEGAMING",
 ]);
