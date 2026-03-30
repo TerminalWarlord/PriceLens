@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import { proxyRequest } from "../utils/proxy_request";
-import { consoleError, consoleLogProduct } from "./debugger";
+import { consoleError, consoleInfo, consoleLogProduct } from "./debugger";
 import { ProductProvider } from "../../types/product_type";
 import { addProduct } from "./add_product";
 import { db } from "../db";
@@ -8,6 +8,7 @@ import { categoriesTable } from "../../src/db/schema/product_categories";
 import { and, eq } from "drizzle-orm";
 import { processCategories } from "./process_categories";
 import { isPageProcessed, markPageAsProcessed } from "../redis/redis_helper";
+import { MAX_PAGE_LIMIT } from "./scraper_config";
 
 async function getCategory(url: string) {
 	try {
@@ -53,17 +54,29 @@ async function getCategory(url: string) {
 
 async function processSkylandProduct(url: string) {
 	const categoryId = await getCategory(url);
-	for (let page = 1; page < 2; page++) {
+	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		const pageUrl = `${url}/?limit=100&fq=1&page=${page}`;
+		consoleInfo(ProductProvider.SKYLANDBD, `Scrapping ${pageUrl}...`);
 		try {
 			if (await isPageProcessed(pageUrl)) {
 				continue;
 			}
 			const r = await proxyRequest(pageUrl);
 			if (r.status !== 200) {
-				throw new Error("Failed to get products from page");
+				consoleInfo(
+					ProductProvider.SKYLANDBD,
+					`No more items found ${pageUrl}`,
+				);
+				break;
 			}
 			const $ = cheerio.load(r.data);
+			if ($("div.main-products").children().length === 0) {
+				consoleInfo(
+					ProductProvider.SKYLANDBD,
+					`No more items found on ${pageUrl}`,
+				);
+				break;
+			}
 			for (const el of $("div.main-products").children().toArray()) {
 				try {
 					const productName = $(el).find("div.name a").attr("title")?.trim();
@@ -140,5 +153,4 @@ export async function scrapeSkylandBdCategories() {
 	);
 }
 
-(async () =>
-	await processSkylandProduct("https://www.skyland.com.bd/all-in-one-pc"))();
+(async () => await scrapeSkylandBdCategories())();

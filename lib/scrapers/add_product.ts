@@ -5,8 +5,8 @@ import { db } from "../../src";
 import { and, eq } from "drizzle-orm";
 import { productPricesTable } from "../../src/db/schema/product_prices";
 import { consoleError, consoleInfo, consoleSuccess } from "./debugger";
-import { UPDATE_FREQUENCY } from "./scraper_config";
 import { productCategoriesTable } from "../../src/db/schema/product_categories";
+import { UPDATE_FREQUENCY } from "./scraper_config";
 
 type CustomProduct = {
 	category_id: number | undefined;
@@ -76,7 +76,7 @@ export async function addProduct({
 		consoleError(product_provider, `${product_url} is missing metadata`);
 		return;
 	}
-	const item = await db
+	const [item] = await db
 		.select()
 		.from(productsTable)
 		.where(
@@ -84,8 +84,19 @@ export async function addProduct({
 				eq(productsTable.product_url, product_url),
 				eq(productsTable.product_provider, product_provider),
 			),
-		);
-	if (item?.length) {
+		)
+		.limit(1);
+	if (item) {
+		const currentTime = new Date().getTime() - UPDATE_FREQUENCY;
+		const lastUpdated = item.updated_at?.getTime();
+		if (Date.now() - lastUpdated! < currentTime) {
+			// skip item was edited less than 24hrs ago
+			consoleError(
+				product_provider,
+				`Skipping...\n${product_url} was updated on ${item.updated_at}`,
+			);
+			return;
+		}
 		consoleInfo(product_provider, `${product_url} exists... Updating...`);
 		const [result] = await db
 			.update(productsTable)
