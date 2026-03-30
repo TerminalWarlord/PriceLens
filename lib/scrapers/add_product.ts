@@ -97,6 +97,17 @@ export async function addProduct({
 			);
 			return;
 		}
+		if (
+			item.product_name === product_name &&
+			item.product_description &&
+			item.product_price === BigInt(product_price)
+		) {
+			consoleError(
+				product_provider,
+				`Skipping...\n${product_url} product didn't change since last update`,
+			);
+			return;
+		}
 		consoleInfo(product_provider, `${product_url} exists... Updating...`);
 		const [result] = await db
 			.update(productsTable)

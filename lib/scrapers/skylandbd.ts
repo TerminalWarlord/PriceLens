@@ -101,12 +101,6 @@ async function processSkylandProduct(url: string) {
 						.toArray()) {
 						productDescription += $(li).text().trim();
 					}
-					consoleLogProduct(ProductProvider.SKYLANDBD, {
-						name: productName!,
-						price: productPrice,
-						description: productDescription,
-						image: productImage!,
-					});
 					await addProduct({
 						category_id: categoryId,
 						product_description: productDescription,

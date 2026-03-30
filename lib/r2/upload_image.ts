@@ -15,13 +15,22 @@ export async function uploadImage(imageUrl: string, provider: string) {
 	const actualUrl = url.searchParams.get("url") || imageUrl;
 	const updatedUrl = new URL(actualUrl);
 	const r = await fetch(actualUrl);
+	if (!r.ok) {
+		throw new Error(`Failed to get image from ${imageUrl}`);
+	}
 	const cleanPath = decodeURIComponent(updatedUrl.pathname);
 	const fileName = cleanPath.split("/").pop();
 	console.log(decodeURIComponent(actualUrl), cleanPath);
 	if (!fileName) {
 		throw Error("Failed to get filename while uploading");
 	}
+
 	const buffer = await r.arrayBuffer();
+	if (buffer.byteLength === 0) {
+		throw new Error(
+			`Failed to get image from ${imageUrl}! Seems like a blank image!`,
+		);
+	}
 	const newFileName = `${provider.toLocaleLowerCase()}/${fileName}`;
 	const fileExt =
 		r.headers.get("Content-Type") ||

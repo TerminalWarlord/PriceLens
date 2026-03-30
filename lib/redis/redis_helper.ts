@@ -11,7 +11,7 @@ export async function isCategoryProcessed(
 	if (exists === 1) {
 		const ttl = await redis_client.ttl(key);
 		if (ttl === -1) {
-			await redis_client.expire(key, 60 * 60 * 24 * 7);
+			await redis_client.expire(key, 3600);
 		}
 	}
 	return exists === 1 ? false : true;
