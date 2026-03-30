@@ -20,7 +20,6 @@ export async function uploadImage(imageUrl: string, provider: string) {
 	}
 	const cleanPath = decodeURIComponent(updatedUrl.pathname);
 	const fileName = cleanPath.split("/").pop();
-	console.log(decodeURIComponent(actualUrl), cleanPath);
 	if (!fileName) {
 		throw Error("Failed to get filename while uploading");
 	}

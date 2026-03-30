@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import { proxyRequest } from "../utils/proxy_request";
+import { Method, proxyRequest } from "../utils/proxy_request";
 import { consoleError, consoleInfo, consoleLogProduct } from "./debugger";
 import { ProductProvider } from "../../types/product_type";
 import { addProduct } from "./add_product";
@@ -61,7 +61,7 @@ async function processSkylandProduct(url: string) {
 			if (await isPageProcessed(pageUrl)) {
 				continue;
 			}
-			const r = await proxyRequest(pageUrl);
+			const r = await proxyRequest(pageUrl, Method.GET, 20000);
 			if (r.status !== 200) {
 				consoleInfo(
 					ProductProvider.SKYLANDBD,
@@ -81,9 +81,10 @@ async function processSkylandProduct(url: string) {
 				try {
 					const productName = $(el).find("div.name a").attr("title")?.trim();
 					const productUrl = $(el).find("a").attr("href")?.trim();
-					const productImage =
-						"https://www.skyland.com.bd/" +
-						$(el).find("div.image img").eq(0).attr("src");
+					let productImage = $(el).find("div.image img").eq(0).attr("src");
+					if (!productImage?.startsWith("https")) {
+						productImage = "https://www.skyland.com.bd/" + productImage;
+					}
 					const productPrice =
 						Number(
 							$(el)
@@ -113,7 +114,7 @@ async function processSkylandProduct(url: string) {
 				} catch (err) {
 					consoleError(
 						ProductProvider.SKYLANDBD,
-						`Failed to extract product data!`,
+						`Failed to extract product data! ${err}`,
 					);
 				}
 			}
