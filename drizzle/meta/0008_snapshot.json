@@ -1,0 +1,346 @@
+{
+	"id": "517ce543-e2f9-4a74-b0bf-4c5fd690a2cf",
+	"prevId": "c77617e8-0fd0-4564-9a84-58eb01a5a889",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.categories": {
+			"name": "categories",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "always",
+						"name": "categories_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"provider_category_slug": {
+					"name": "provider_category_slug",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"provider": {
+					"name": "provider",
+					"type": "product_provider",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"pricelens_slug": {
+					"name": "pricelens_slug",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"provider_url": {
+					"name": "provider_url",
+					"columns": [
+						{
+							"expression": "provider_category_slug",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "provider",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"provider_slug_provider_unique": {
+					"name": "provider_slug_provider_unique",
+					"nullsNotDistinct": false,
+					"columns": ["provider_category_slug", "provider"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.product_categories": {
+			"name": "product_categories",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "always",
+						"name": "product_categories_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"category_id": {
+					"name": "category_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"product_id": {
+					"name": "product_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"product_categories_category_id_categories_id_fk": {
+					"name": "product_categories_category_id_categories_id_fk",
+					"tableFrom": "product_categories",
+					"tableTo": "categories",
+					"columnsFrom": ["category_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"product_categories_product_id_products_id_fk": {
+					"name": "product_categories_product_id_products_id_fk",
+					"tableFrom": "product_categories",
+					"tableTo": "products",
+					"columnsFrom": ["product_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.product_prices": {
+			"name": "product_prices",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "always",
+						"name": "product_prices_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"product_id": {
+					"name": "product_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"price": {
+					"name": "price",
+					"type": "bigint",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"description": {
+					"name": "description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"provider": {
+					"name": "provider",
+					"type": "product_provider",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"recorded_at": {
+					"name": "recorded_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"product_prices_product_id_products_id_fk": {
+					"name": "product_prices_product_id_products_id_fk",
+					"tableFrom": "product_prices",
+					"tableTo": "products",
+					"columnsFrom": ["product_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.products": {
+			"name": "products",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "integer",
+					"primaryKey": true,
+					"notNull": true,
+					"identity": {
+						"type": "always",
+						"name": "products_id_seq",
+						"schema": "public",
+						"increment": "1",
+						"startWith": "1",
+						"minValue": "1",
+						"maxValue": "2147483647",
+						"cache": "1",
+						"cycle": false
+					}
+				},
+				"product_name": {
+					"name": "product_name",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"product_price": {
+					"name": "product_price",
+					"type": "bigint",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"product_description": {
+					"name": "product_description",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"product_provider": {
+					"name": "product_provider",
+					"type": "product_provider",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"product_url": {
+					"name": "product_url",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"product_image": {
+					"name": "product_image",
+					"type": "varchar(255)",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"provider_url_unique": {
+					"name": "provider_url_unique",
+					"nullsNotDistinct": false,
+					"columns": ["product_provider", "product_url"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		}
+	},
+	"enums": {
+		"public.product_provider": {
+			"name": "product_provider",
+			"schema": "public",
+			"values": [
+				"STARTECH",
+				"RYANS",
+				"TECHLAND",
+				"COMPUTER_VILLAGE",
+				"TECH_MARVELS",
+				"VERTECH",
+				"APPLE_GADGETS",
+				"UCC",
+				"DAZZLE",
+				"SKYLANDBD",
+				"POTAKAIT",
+				"ULTRATECH",
+				"VIBEGAMING"
+			]
+		}
+	},
+	"schemas": {},
+	"sequences": {},
+	"roles": {},
+	"policies": {},
+	"views": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
+}

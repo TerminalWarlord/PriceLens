@@ -57,6 +57,13 @@
 			"when": 1774800212995,
 			"tag": "0007_thick_rattler",
 			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1774858070323,
+			"tag": "0008_past_impossible_man",
+			"breakpoints": true
 		}
 	]
 }
