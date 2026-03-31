@@ -115,6 +115,7 @@ export async function addProduct({
 				product_name,
 				product_description,
 				product_price: BigInt(product_price),
+				updated_at: new Date(),
 			})
 			.where(
 				and(
