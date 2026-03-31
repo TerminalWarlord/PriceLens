@@ -27,7 +27,7 @@ async function getRyansCategory(url: string) {
 	try {
 		const page = await context.newPage();
 		await page.goto(url);
-		await page.waitForTimeout(3000);
+		await page.waitForTimeout(6000);
 		const $ = cheerio.load(await page.content());
 		const categoryName = $("div.card div.card-body span")
 			.eq(2)
@@ -49,7 +49,7 @@ export async function getRyansProductDetails(url: string) {
 	// https://www.ryans.com/category/laptop-all-laptop?limit=5000&sort=D&osp=1&st=0
 	const page = await context.newPage();
 	await page.goto(url);
-	await page.waitForTimeout(3000);
+	await page.waitForTimeout(6000);
 	// console.log(await page.title());
 	const categoryId = await getRyansCategory(url);
 	for (let p = 1; p < MAX_PAGE_LIMIT; p++) {
