@@ -1,106 +1,62 @@
 import * as cheerio from "cheerio";
 import { Method, proxyRequest } from "../utils/proxy_request";
-import { db } from "../db";
-import { productsTable } from "../../src/db/schema/products";
 import { ProductProvider } from "../../types/product_type";
-import { and, eq } from "drizzle-orm";
-import { MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
-import { uploadImage } from "../r2/upload_image";
-import { productPricesTable } from "../../src/db/schema/product_prices";
-import {
-	consoleError,
-	consoleInfo,
-	consoleLogProduct,
-	consoleSuccess,
-} from "./debugger";
-import pLimit from "p-limit";
+import { MAX_PAGE_LIMIT } from "./scraper_config";
+import { consoleError, consoleInfo } from "./debugger";
 import {
 	addItemToQueue,
-	isCategoryProcessed,
 	isPageProcessed,
 	markPageAsProcessed,
 } from "../redis/redis_helper";
+import { processCategories } from "./process_categories";
+import { addProduct } from "./add_product";
+import { getCategory } from "./add_category";
 
-export async function processStartechProductUrl(productUrl: string) {
-	consoleInfo(ProductProvider.STARTECH, `Scraping ${productUrl}`);
-	const r = await proxyRequest(productUrl);
-	const data = r.data;
-	const $ = cheerio.load(data);
-	const productName = $("h1.product-name").text().trim();
-	const productPrice =
-		Number(
-			$("table.product-info-table tbody")
-				.find(".product-info-data.product-price")
-				.text()
-				.trim()
-				.split("৳")[0]
-				.replace(/,/g, "")
-				.replace(/৳/g, ""),
-		) * 100;
-	const productImage = $("img.main-img").attr("src");
-	let productDescription = "";
-	for (const el of $("div.short-description ul").children().toArray()) {
-		if ($(el).hasClass("view-more")) continue;
-		productDescription += $(el).text().trim() + "\n";
-	}
-	productDescription = productDescription.trim();
-	if (
-		!productName ||
-		!productImage ||
-		!productDescription ||
-		!productUrl ||
-		isNaN(productPrice) ||
-		productPrice === 0
-	) {
-		consoleError(ProductProvider.STARTECH, `${productUrl} is missing metadata`);
-		return;
-	}
-	consoleLogProduct(ProductProvider.STARTECH, {
-		name: productName,
-		description: productDescription.trim(),
-		image: productImage,
-		price: productPrice,
-	});
-	const item = await db
-		.select()
-		.from(productsTable)
-		.where(
-			and(
-				eq(productsTable.product_url, productUrl),
-				eq(productsTable.product_provider, ProductProvider.STARTECH),
-			),
-		);
-	if (item && item.length) {
-		return;
-	}
-	const uploadedImagePath = await uploadImage(
-		productImage,
-		ProductProvider.STARTECH,
-	);
-
-	const [result] = await db
-		.insert(productsTable)
-		.values({
-			product_name: productName,
-			product_url: productUrl,
-			product_price: BigInt(productPrice),
+export async function processStartechProductUrl(
+	productUrl: string,
+	categoryId: number | undefined,
+) {
+	try {
+		const r = await proxyRequest(productUrl);
+		const data = r.data;
+		const $ = cheerio.load(data);
+		const productName = $("h1.product-name").text().trim();
+		const productPrice =
+			Number(
+				$("table.product-info-table tbody")
+					.find(".product-info-data.product-price")
+					.text()
+					.trim()
+					.split("৳")[0]
+					.replace(/,/g, "")
+					.replace(/৳/g, ""),
+			) * 100;
+		const productImage = $("img.main-img").attr("src");
+		let productDescription = "";
+		for (const el of $("div.short-description ul").children().toArray()) {
+			if ($(el).hasClass("view-more")) continue;
+			productDescription += $(el).text().trim() + "\n";
+		}
+		productDescription = productDescription.trim();
+		await addProduct({
+			category_id: categoryId,
 			product_description: productDescription.trim(),
-			product_image: uploadedImagePath,
+			product_image: productImage,
+			product_name: productName,
+			product_price: productPrice,
 			product_provider: ProductProvider.STARTECH,
-		})
-		.returning({ id: productsTable.id });
-
-	await db.insert(productPricesTable).values({
-		name: productName,
-		description: productDescription.trim(),
-		price: BigInt(productPrice),
-		product_id: result.id,
-		provider: ProductProvider.STARTECH,
-	});
-	consoleSuccess(ProductProvider.STARTECH, `Added ${productUrl}`);
+			product_url: productUrl,
+		});
+	} catch (err) {
+		consoleError(
+			ProductProvider.STARTECH,
+			`Failed to scrape ${productUrl}: ${err}`,
+		);
+	}
 }
 
 export async function getStartechProductDetails(url: string) {
+	const categoryId = await getCategory(url, ProductProvider.STARTECH);
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		consoleInfo(
 			ProductProvider.STARTECH,
@@ -134,7 +90,7 @@ export async function getStartechProductDetails(url: string) {
 		let processed = 0;
 		for (const productUrl of productUrls) {
 			try {
-				await addItemToQueue(productUrl, ProductProvider.STARTECH);
+				await addItemToQueue(productUrl, ProductProvider.STARTECH, categoryId);
 				processed += 1;
 			} catch (err) {
 				consoleError(
@@ -162,26 +118,10 @@ export async function scrapeStartechCategories() {
 			if (!navLink) continue;
 			navLinks.add(navLink);
 		}
-		const categoryLimit = pLimit(PLIMIT);
-		const tasks = Array.from(navLinks).map((navLink) =>
-			categoryLimit(async () => {
-				try {
-					const isProcessed = await isCategoryProcessed(
-						navLink,
-						ProductProvider.STARTECH,
-					);
-					if (isProcessed) return;
-					consoleInfo(ProductProvider.STARTECH, `Scraping : ${navLink}`);
-					await getStartechProductDetails(navLink);
-				} catch (err) {
-					consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);
-				}
-			}),
-		);
-		await Promise.all(tasks);
-		consoleSuccess(
+		await processCategories(
+			navLinks,
 			ProductProvider.STARTECH,
-			"Finished scraping all Startech categories.",
+			getStartechProductDetails,
 		);
 	} catch (err) {
 		consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);

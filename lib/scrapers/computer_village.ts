@@ -1,26 +1,15 @@
 import { proxyRequest } from "../utils/proxy_request";
 import * as cheerio from "cheerio";
-import { MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
+import { MAX_PAGE_LIMIT } from "./scraper_config";
 import { ProductProvider } from "../../types/product_type";
-import { productsTable } from "../../src/db/schema/products";
-import { productPricesTable } from "../../src/db/schema/product_prices";
-import { db } from "../db";
-import { and, eq } from "drizzle-orm";
-import { uploadImage } from "../r2/upload_image";
-import {
-	consoleError,
-	consoleInfo,
-	consoleLogProduct,
-	consoleSuccess,
-} from "./debugger";
-import {
-	isCategoryProcessed,
-	isPageProcessed,
-	markPageAsProcessed,
-} from "../redis/redis_helper";
-import pLimit from "p-limit";
+import { consoleError } from "./debugger";
+import { isPageProcessed, markPageAsProcessed } from "../redis/redis_helper";
+import { processCategories } from "./process_categories";
+import { addProduct } from "./add_product";
+import { getCategory } from "./add_category";
 
-export async function getComputerVillageProductDetails(url: string) {
+export async function getComputerVillageCategoryProducts(url: string) {
+	const categoryId = await getCategory(url, ProductProvider.COMPUTER_VILLAGE);
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		const pageUrl = `${url}?limit=200&page=${page}&fq=1`;
 		if (await isPageProcessed(pageUrl)) {
@@ -68,61 +57,15 @@ export async function getComputerVillageProductDetails(url: string) {
 					productDescription += $(li).text() + "\n";
 				}
 				const productImage = $(el).find(".image img").attr("src");
-				if (
-					!productName ||
-					!productImage ||
-					!productDescription ||
-					!productUrl ||
-					isNaN(productPrice) ||
-					productPrice === 0
-				) {
-					continue;
-				}
-				consoleLogProduct(ProductProvider.COMPUTER_VILLAGE, {
-					name: productName,
-					description: productDescription,
-					image: productImage,
-					price: productPrice,
+				await addProduct({
+					category_id: categoryId,
+					product_description: productDescription.trim(),
+					product_image: productImage,
+					product_name: productName,
+					product_price: productPrice,
+					product_provider: ProductProvider.COMPUTER_VILLAGE,
+					product_url: productUrl,
 				});
-				const item = await db
-					.select()
-					.from(productsTable)
-					.where(
-						and(
-							eq(productsTable.product_url, productUrl),
-							eq(
-								productsTable.product_provider,
-								ProductProvider.COMPUTER_VILLAGE,
-							),
-						),
-					);
-				if (item && item.length) {
-					continue;
-				}
-				const uploadedImagePath = await uploadImage(
-					productImage,
-					ProductProvider.COMPUTER_VILLAGE,
-				);
-				const [result] = await db
-					.insert(productsTable)
-					.values({
-						product_name: productName,
-						product_url: productUrl,
-						product_price: BigInt(productPrice),
-						product_description: productDescription.trim(),
-						product_image: uploadedImagePath,
-						product_provider: ProductProvider.COMPUTER_VILLAGE,
-					})
-					.returning({ id: productsTable.id });
-
-				await db.insert(productPricesTable).values({
-					name: productName,
-					description: productDescription.trim(),
-					price: BigInt(productPrice),
-					product_id: result.id,
-					provider: ProductProvider.COMPUTER_VILLAGE,
-				});
-				consoleSuccess(ProductProvider.COMPUTER_VILLAGE, `Added ${productUrl}`);
 			} catch (err) {
 				consoleError(
 					ProductProvider.COMPUTER_VILLAGE,
@@ -138,39 +81,16 @@ export async function scrapeComputerVillageCategories() {
 	try {
 		const r = await proxyRequest("https://www.computervillage.com.bd/");
 		const $ = cheerio.load(r.data);
-		console.log(r.data);
 		const navLinks = new Set<string>();
 		for (const el of $(".main-menu .j-menu").children().toArray()) {
 			const navLink = $(el).find("a").attr("href");
 			if (!navLink) continue;
 			navLinks.add(navLink);
 		}
-		const categoryLimit = pLimit(PLIMIT);
-		const tasks = Array.from(navLinks).map((navLink) =>
-			categoryLimit(async () => {
-				try {
-					const isProcessed = await isCategoryProcessed(
-						navLink,
-						ProductProvider.COMPUTER_VILLAGE,
-					);
-					if (isProcessed) return;
-					consoleInfo(
-						ProductProvider.COMPUTER_VILLAGE,
-						`Scraping : ${navLink}`,
-					);
-					await getComputerVillageProductDetails(navLink);
-				} catch (err) {
-					consoleError(
-						ProductProvider.COMPUTER_VILLAGE,
-						`Failed to scrape : ${err}`,
-					);
-				}
-			}),
-		);
-		await Promise.all(tasks);
-		consoleSuccess(
+		await processCategories(
+			navLinks,
 			ProductProvider.COMPUTER_VILLAGE,
-			`Processed all categories`,
+			getComputerVillageCategoryProducts,
 		);
 	} catch (err) {
 		consoleError(ProductProvider.COMPUTER_VILLAGE, `Failed to scrape ${err}`);

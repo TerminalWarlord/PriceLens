@@ -1,20 +1,11 @@
-import * as cheerio from "cheerio";
 import { proxyRequest } from "../utils/proxy_request";
 import { consoleError, consoleInfo, consoleLogProduct } from "./debugger";
 import { ProductProvider } from "../../types/product_type";
-import { MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
-import { db } from "../../src";
-import { productsTable } from "../../src/db/schema/products";
-import { and, eq } from "drizzle-orm";
-import { uploadImage } from "../r2/upload_image";
-import { productPricesTable } from "../../src/db/schema/product_prices";
-import pLimit from "p-limit";
-import { processItemWithTimeout } from "../utils/process_helper";
-import {
-	isCategoryProcessed,
-	isPageProcessed,
-	markPageAsProcessed,
-} from "../redis/redis_helper";
+import { MAX_PAGE_LIMIT } from "./scraper_config";
+import { isPageProcessed, markPageAsProcessed } from "../redis/redis_helper";
+import { addProduct } from "./add_product";
+import { addCategory } from "./add_category";
+import { processCategories } from "./process_categories";
 
 interface DazzleProduct {
 	name: string;
@@ -32,7 +23,30 @@ interface DazzleProduct {
 	status: string; //stock->available
 }
 
-export async function processDazzleProductUrl(slugPath: string) {
+async function getDazzleCategory(slug: string) {
+	try {
+		const r = await proxyRequest(
+			`https://api.dazzle.com.bd/api/v2/categories/${slug}`,
+		);
+		if (r.status !== 200) {
+			consoleError(ProductProvider.DAZZLE, `Failed to fetch category`);
+			return;
+		}
+		const categoryName = r.data?.data?.name;
+		if (categoryName) {
+			return await addCategory(slug, categoryName, ProductProvider.DAZZLE);
+		}
+		console.log({ categoryName });
+	} catch (err) {
+		consoleError(
+			ProductProvider.DAZZLE,
+			`Failed to extract category: ${slug} : ${err}`,
+		);
+	}
+}
+
+export async function processDazzleCaetgoryProducts(slugPath: string) {
+	const categoryId = await getDazzleCategory(slugPath);
 	try {
 		for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 			const pageUrl = `https://api.dazzle.com.bd/api/v2/categories/${slugPath}/products?fields=id,name,slug,meta,created_at,brand_id&sort=-hot&filter[brand_id]=&page[size]=100&page[number]=${page}&include=price,category,brand,variantsCount,stock,attributes,campaigns.discounts`;
@@ -79,61 +93,14 @@ export async function processDazzleProductUrl(slugPath: string) {
 						);
 						continue;
 					}
-					if (
-						!productName ||
-						!productImage ||
-						!productDescription ||
-						!productUrl ||
-						isNaN(productPrice) ||
-						productPrice === 0
-					) {
-						consoleError(
-							ProductProvider.DAZZLE,
-							`Metadata missing ${{
-								name: productName,
-								description: productDescription,
-								price: productPrice,
-								image: productImage,
-							}}`,
-						);
-						continue;
-					}
-
-					const item = await db
-						.select()
-						.from(productsTable)
-						.where(
-							and(
-								eq(productsTable.product_url, productUrl),
-								eq(productsTable.product_provider, ProductProvider.DAZZLE),
-							),
-						);
-					if (item && item.length) {
-						continue;
-					}
-					const uploadedImagePath = await uploadImage(
-						productImage,
-						ProductProvider.DAZZLE,
-					);
-
-					const [result] = await db
-						.insert(productsTable)
-						.values({
-							product_name: productName,
-							product_url: productUrl,
-							product_price: BigInt(productPrice),
-							product_description: productDescription,
-							product_image: uploadedImagePath,
-							product_provider: ProductProvider.DAZZLE,
-						})
-						.returning({ id: productsTable.id });
-
-					await db.insert(productPricesTable).values({
-						name: productName,
-						description: productDescription,
-						price: BigInt(productPrice),
-						product_id: result.id,
-						provider: ProductProvider.DAZZLE,
+					await addProduct({
+						category_id: categoryId,
+						product_description: productDescription.trim(),
+						product_image: productImage,
+						product_name: productName,
+						product_price: productPrice,
+						product_provider: ProductProvider.DAZZLE,
+						product_url: productUrl,
 					});
 				} catch (err) {
 					consoleError(
@@ -161,28 +128,11 @@ export async function scrapeDazzleCategories() {
 		const navLinks: string[] = r.data.data.map(
 			(item: { slug_path: string }) => item.slug_path,
 		);
-
-		const categoryLimit = pLimit(PLIMIT);
-		const tasks = Array.from(navLinks).map((navLink) =>
-			categoryLimit(async () => {
-				try {
-					if (!navLink) return;
-					if (await isCategoryProcessed(navLink, ProductProvider.DAZZLE)) {
-						consoleInfo(
-							ProductProvider.DAZZLE,
-							`Category already processed ${navLink}`,
-						);
-						return;
-					}
-					consoleInfo(ProductProvider.DAZZLE, `Scraping ${navLink}`);
-					await processItemWithTimeout(processDazzleProductUrl(navLink));
-				} catch (err) {
-					consoleError(ProductProvider.DAZZLE, `Scraping ${navLink}`);
-				}
-			}),
+		await processCategories(
+			new Set(navLinks),
+			ProductProvider.DAZZLE,
+			processDazzleCaetgoryProducts,
 		);
-		await Promise.all(tasks);
-		consoleInfo(ProductProvider.DAZZLE, `Processed all categories`);
 	} catch (err) {
 		consoleError(ProductProvider.DAZZLE, `Failed: ${err}`);
 	}

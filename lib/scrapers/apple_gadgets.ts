@@ -1,29 +1,23 @@
 import * as cheerio from "cheerio";
 import { Method, proxyRequest } from "../utils/proxy_request";
-import { MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
-import { db } from "../db";
-import { productsTable } from "../../src/db/schema/products";
-import { and, eq } from "drizzle-orm";
 import { ProductProvider } from "../../types/product_type";
-import { productPricesTable } from "../../src/db/schema/product_prices";
-import { uploadImage } from "../r2/upload_image";
-import {
-	consoleError,
-	consoleInfo,
-	consoleLogProduct,
-	consoleSuccess,
-} from "./debugger";
-import pLimit from "p-limit";
+import { consoleError, consoleInfo } from "./debugger";
+import { addProduct } from "./add_product";
+import { processCategories } from "./process_categories";
+import { MAX_PAGE_LIMIT } from "./scraper_config";
 import {
 	addItemToQueue,
-	isCategoryProcessed,
 	isPageProcessed,
 	markPageAsProcessed,
 } from "../redis/redis_helper";
+import { getCategory } from "./add_category";
 
 const BASE_URL = "https://www.applegadgetsbd.com";
 
-export async function processAppleGadgetsProductUrl(productUrl: string) {
+export async function processAppleGadgetsProductDetails(
+	productUrl: string,
+	categoryId: number | undefined,
+) {
 	try {
 		const updatedProductUrl = productUrl.includes("https://")
 			? productUrl
@@ -49,63 +43,15 @@ export async function processAppleGadgetsProductUrl(productUrl: string) {
 			productDescription += `${fieldTitle}: ${fieldValue}\n`;
 		}
 		const productPrice = Number(priceMatch?.[1]) * 100;
-		if (
-			!productName ||
-			!productImage ||
-			!productDescription ||
-			!updatedProductUrl ||
-			isNaN(productPrice) ||
-			productPrice === 0
-		) {
-			consoleError(
-				ProductProvider.APPLE_GADGETS,
-				`${productUrl} is missing metadata`,
-			);
-			return;
-		}
-		consoleLogProduct(ProductProvider.APPLE_GADGETS, {
-			name: productName,
-			description: productDescription.trim(),
-			image: productImage,
-			price: productPrice,
+		await addProduct({
+			category_id: categoryId,
+			product_description: productDescription.trim(),
+			product_image: productImage,
+			product_name: productName,
+			product_price: productPrice,
+			product_provider: ProductProvider.APPLE_GADGETS,
+			product_url: productUrl,
 		});
-		const item = await db
-			.select()
-			.from(productsTable)
-			.where(
-				and(
-					eq(productsTable.product_url, updatedProductUrl),
-					eq(productsTable.product_provider, ProductProvider.APPLE_GADGETS),
-				),
-			);
-		if (item && item.length) {
-			return;
-		}
-		const uploadedImagePath = await uploadImage(
-			productImage,
-			ProductProvider.APPLE_GADGETS,
-		);
-
-		const [result] = await db
-			.insert(productsTable)
-			.values({
-				product_name: productName,
-				product_url: updatedProductUrl,
-				product_price: BigInt(productPrice),
-				product_description: productDescription.trim(),
-				product_image: uploadedImagePath,
-				product_provider: ProductProvider.APPLE_GADGETS,
-			})
-			.returning({ id: productsTable.id });
-
-		await db.insert(productPricesTable).values({
-			name: productName,
-			description: productDescription.trim(),
-			price: BigInt(productPrice),
-			product_id: result.id,
-			provider: ProductProvider.APPLE_GADGETS,
-		});
-		consoleSuccess(ProductProvider.APPLE_GADGETS, `Added ${updatedProductUrl}`);
 	} catch (err) {
 		consoleError(
 			ProductProvider.APPLE_GADGETS,
@@ -114,8 +60,8 @@ export async function processAppleGadgetsProductUrl(productUrl: string) {
 	}
 }
 
-export async function getAppleGadgetsProductDetails(url: string) {
-	// https://www.applegadgetsbd.com/category/laptop-and-desktop?page=2
+export async function getAppleGadgetsCategoryProducts(url: string) {
+	const categoryId = await getCategory(url, ProductProvider.APPLE_GADGETS);
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		const pageUrl = url + "?page=" + page;
 		if (await isPageProcessed(pageUrl)) {
@@ -145,7 +91,11 @@ export async function getAppleGadgetsProductDetails(url: string) {
 		let processed = 0;
 		for (const productUrl of productUrls) {
 			try {
-				await addItemToQueue(productUrl, ProductProvider.APPLE_GADGETS);
+				await addItemToQueue(
+					productUrl,
+					ProductProvider.APPLE_GADGETS,
+					categoryId,
+				);
 				processed += 1;
 			} catch (err) {
 				consoleError(
@@ -172,28 +122,11 @@ export async function scrapeAppleGadgetsCategories() {
 				navLinks.add(navLink);
 			}
 		}
-		const categoryLimit = pLimit(PLIMIT);
-		const tasks = Array.from(navLinks).map((navLink) =>
-			categoryLimit(async () => {
-				try {
-					const isProcessed = await isCategoryProcessed(
-						navLink,
-						ProductProvider.APPLE_GADGETS,
-					);
-					if (isProcessed) return;
-					consoleInfo(ProductProvider.APPLE_GADGETS, `Scraping : ${navLink}`);
-					await getAppleGadgetsProductDetails(navLink);
-				} catch (err) {
-					consoleError(
-						ProductProvider.APPLE_GADGETS,
-						`Failed to scrape ${err}`,
-					);
-				}
-			}),
+		await processCategories(
+			navLinks,
+			ProductProvider.APPLE_GADGETS,
+			getAppleGadgetsCategoryProducts,
 		);
-
-		await Promise.all(tasks);
-		consoleSuccess(ProductProvider.APPLE_GADGETS, `Processed all categories`);
 	} catch (err) {
 		consoleError(ProductProvider.APPLE_GADGETS, `Failed to scrape ${err}`);
 	}

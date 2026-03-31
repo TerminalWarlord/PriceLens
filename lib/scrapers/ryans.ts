@@ -1,26 +1,14 @@
 import * as cheerio from "cheerio";
 import { chromium } from "playwright-extra";
 import stealth from "puppeteer-extra-plugin-stealth";
-import type { BrowserContext } from "playwright";
-import { and, eq } from "drizzle-orm";
-import { productsTable } from "../../src/db/schema/products";
 import { ProductProvider } from "../../types/product_type";
-import { db } from "../db";
-import { productPricesTable } from "../../src/db/schema/product_prices";
-import { MAX_ITEM_LIMIT, MAX_PAGE_LIMIT, PLIMIT } from "./scraper_config";
-import { uploadImage } from "../r2/upload_image";
-import {
-	consoleError,
-	consoleInfo,
-	consoleLogProduct,
-	consoleSuccess,
-} from "./debugger";
-import pLimit from "p-limit";
-import {
-	isCategoryProcessed,
-	isPageProcessed,
-	markPageAsProcessed,
-} from "../redis/redis_helper";
+import { MAX_ITEM_LIMIT, MAX_PAGE_LIMIT } from "./scraper_config";
+import { consoleError, consoleInfo } from "./debugger";
+
+import { addProduct } from "./add_product";
+import { processCategories } from "./process_categories";
+import { addCategory } from "./add_category";
+import { isPageProcessed, markPageAsProcessed } from "../redis/redis_helper";
 
 chromium.use(stealth());
 const browser = await chromium.launch({
@@ -28,14 +16,44 @@ const browser = await chromium.launch({
 	args: ["--headless=new"],
 });
 
-export async function getRyansProductDetails(
-	url: string,
-	browserContext: BrowserContext,
-) {
+const context = await browser.newContext({
+	userAgent:
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+	viewport: { width: 1280, height: 800 },
+	locale: "en-BD",
+});
+
+async function getRyansCategory(url: string) {
+	try {
+		const page = await context.newPage();
+		await page.goto(url);
+		await page.waitForTimeout(3000);
+		const $ = cheerio.load(await page.content());
+		const categoryName = $("div.card div.card-body span")
+			.eq(2)
+			.find("a")
+			.text()
+			.trim();
+		if (categoryName) {
+			return await addCategory(url, categoryName, ProductProvider.RYANS);
+		}
+	} catch (err) {
+		consoleError(
+			ProductProvider.RYANS,
+			`Failed to extract category ${url} : ${err}`,
+		);
+	}
+}
+
+export async function getRyansProductDetails(url: string) {
 	// https://www.ryans.com/category/laptop-all-laptop?limit=5000&sort=D&osp=1&st=0
-	const page = await browserContext.newPage();
+	const page = await context.newPage();
+	await page.goto(url);
+	await page.waitForTimeout(3000);
+	// console.log(await page.title());
+	const categoryId = await getRyansCategory(url);
 	for (let p = 1; p < MAX_PAGE_LIMIT; p++) {
-		const pageUrl = `${url}?limit=${MAX_ITEM_LIMIT}&page=${p}`;
+		const pageUrl = `${url}?limit=${MAX_ITEM_LIMIT}&page=${p}&osp=1`;
 		try {
 			if (await isPageProcessed(pageUrl)) {
 				consoleError(
@@ -86,58 +104,15 @@ export async function getRyansProductDetails(
 								.trim(),
 						) * 100;
 
-					if (
-						!productName ||
-						!productImage ||
-						!productDescription ||
-						!productUrl ||
-						isNaN(productPrice)
-					) {
-						continue;
-					}
-					const item = await db
-						.select()
-						.from(productsTable)
-						.where(
-							and(
-								eq(productsTable.product_url, productUrl),
-								eq(productsTable.product_provider, ProductProvider.RYANS),
-							),
-						);
-					if (item && item.length) {
-						continue;
-					}
-					const uploadedImagePath = await uploadImage(
-						productImage,
-						ProductProvider.RYANS,
-					);
-					consoleLogProduct(ProductProvider.RYANS, {
-						name: productName,
-						description: productDescription.trim(),
-						image: productImage,
-						price: productPrice,
+					await addProduct({
+						category_id: categoryId,
+						product_description: productDescription.trim(),
+						product_image: productImage,
+						product_name: productName,
+						product_price: productPrice,
+						product_provider: ProductProvider.RYANS,
+						product_url: productUrl,
 					});
-
-					const [result] = await db
-						.insert(productsTable)
-						.values({
-							product_name: productName,
-							product_url: productUrl,
-							product_price: BigInt(productPrice),
-							product_description: productDescription.trim(),
-							product_image: uploadedImagePath,
-							product_provider: ProductProvider.RYANS,
-						})
-						.returning({ id: productsTable.id });
-
-					await db.insert(productPricesTable).values({
-						name: productName,
-						description: productDescription.trim(),
-						price: BigInt(productPrice),
-						product_id: result.id,
-						provider: ProductProvider.RYANS,
-					});
-					consoleSuccess(ProductProvider.RYANS, `Added ${productUrl}`);
 				} catch (err) {
 					consoleError(ProductProvider.RYANS, `Failed to scrape : ${err}`);
 				}
@@ -151,15 +126,7 @@ export async function getRyansProductDetails(
 }
 
 export async function scrapeRyansCategories() {
-	const context = await browser.newContext({
-		userAgent:
-			"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-		viewport: { width: 1280, height: 800 },
-		locale: "en-BD",
-	});
-
 	const page = await context.newPage();
-
 	await page.goto("https://www.ryans.com/", {
 		waitUntil: "domcontentloaded",
 	});
@@ -178,39 +145,16 @@ export async function scrapeRyansCategories() {
 			const item = $(li).find("a").attr("href");
 			if (!item || item === "#") continue;
 			navLinks.add(item);
+			break;
 		}
 	}
-	const categoryLimit = pLimit(2);
-	const tasks = Array.from(navLinks).map((navLink) =>
-		categoryLimit(async () => {
-			try {
-				const isProcessed = await isCategoryProcessed(
-					navLink,
-					ProductProvider.RYANS,
-				);
-				if (isProcessed) {
-					consoleError(
-						ProductProvider.RYANS,
-						`Categories is already processed. Skipping...`,
-					);
-					return;
-				}
-				consoleInfo(ProductProvider.RYANS, `Scraping : ${navLink}`);
-				await getRyansProductDetails(navLink, context);
-			} catch (err) {
-				consoleError(
-					ProductProvider.RYANS,
-					`Failed to scrape ${navLink} : ${err}`,
-				);
-			}
-		}),
+
+	await processCategories(
+		navLinks,
+		ProductProvider.RYANS,
+		getRyansProductDetails,
 	);
 
-	await Promise.all(tasks);
-	consoleSuccess(
-		ProductProvider.RYANS,
-		`Successfully processed all categories`,
-	);
 	await page.close();
 	await browser.close();
 }

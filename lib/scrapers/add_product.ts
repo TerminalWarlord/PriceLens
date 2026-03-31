@@ -1,5 +1,5 @@
 import { productsTable } from "../../src/db/schema/products";
-import type { Product, ProductProvider } from "../../types/product_type";
+import type { ProductProvider } from "../../types/product_type";
 import { uploadImage } from "../r2/upload_image";
 import { db } from "../../src";
 import { and, eq } from "drizzle-orm";
@@ -87,9 +87,9 @@ export async function addProduct({
 		)
 		.limit(1);
 	if (item) {
-		const currentTime = new Date().getTime() - UPDATE_FREQUENCY;
+		const currentTime = new Date().getTime();
 		const lastUpdated = item.updated_at?.getTime();
-		if (Date.now() - lastUpdated! < currentTime) {
+		if (currentTime - lastUpdated! < UPDATE_FREQUENCY) {
 			// skip item was edited less than 24hrs ago
 			consoleError(
 				product_provider,
@@ -124,10 +124,15 @@ export async function addProduct({
 			)
 			.returning({ id: productsTable.id });
 
-		await createProductCategoriesEntry({
-			category_id,
-			product_id: result.id,
-		});
+		if (result) {
+			consoleSuccess(product_provider, `Updated ${product_url}`);
+		}
+		if (category_id) {
+			await createProductCategoriesEntry({
+				category_id,
+				product_id: result.id,
+			});
+		}
 		await addRecordToProductPricesTable({
 			name: product_name,
 			description: product_description,
@@ -151,10 +156,12 @@ export async function addProduct({
 		})
 		.returning({ id: productsTable.id });
 
-	await createProductCategoriesEntry({
-		category_id,
-		product_id: result.id,
-	});
+	if (category_id) {
+		await createProductCategoriesEntry({
+			category_id,
+			product_id: result.id,
+		});
+	}
 	await addRecordToProductPricesTable({
 		name: product_name,
 		description: product_description,

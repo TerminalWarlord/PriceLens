@@ -1,59 +1,15 @@
 import * as cheerio from "cheerio";
 import { Method, proxyRequest } from "../utils/proxy_request";
-import { consoleError, consoleInfo, consoleLogProduct } from "./debugger";
+import { consoleError, consoleInfo } from "./debugger";
 import { ProductProvider } from "../../types/product_type";
 import { addProduct } from "./add_product";
-import { db } from "../db";
-import { categoriesTable } from "../../src/db/schema/product_categories";
-import { and, eq } from "drizzle-orm";
 import { processCategories } from "./process_categories";
 import { isPageProcessed, markPageAsProcessed } from "../redis/redis_helper";
 import { MAX_PAGE_LIMIT } from "./scraper_config";
-
-async function getCategory(url: string) {
-	try {
-		const r = await proxyRequest(url);
-		if (r.status !== 200) {
-			throw new Error("Failed to get category");
-		}
-		const $ = cheerio.load(r.data);
-		const categoryName = $("ul.breadcrumb li").last().text().trim();
-		const [result] = await db
-			.select()
-			.from(categoriesTable)
-			.where(
-				and(
-					eq(categoriesTable.provider_category_slug, url),
-					eq(categoriesTable.provider, ProductProvider.SKYLANDBD),
-				),
-			)
-			.limit(1);
-		if (result) {
-			return result.id;
-		}
-		const [newCategory] = await db
-			.insert(categoriesTable)
-			.values({
-				name: categoryName,
-				pricelens_slug: url,
-				provider: ProductProvider.SKYLANDBD,
-				provider_category_slug: url,
-			})
-			.returning({ id: categoriesTable.id });
-		if (!newCategory) {
-			throw new Error("Failed to create category!");
-		}
-		return newCategory.id;
-	} catch (err) {
-		consoleError(
-			ProductProvider.SKYLANDBD,
-			`Failed to get category ${url}: ${err}`,
-		);
-	}
-}
+import { getCategory } from "./add_category";
 
 async function processSkylandProduct(url: string) {
-	const categoryId = await getCategory(url);
+	const categoryId = await getCategory(url, ProductProvider.SKYLANDBD);
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		const pageUrl = `${url}/?limit=100&fq=1&page=${page}`;
 		consoleInfo(ProductProvider.SKYLANDBD, `Scrapping ${pageUrl}...`);
@@ -147,5 +103,3 @@ export async function scrapeSkylandBdCategories() {
 		processSkylandProduct,
 	);
 }
-
-(async () => await scrapeSkylandBdCategories())();

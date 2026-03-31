@@ -2,9 +2,9 @@ import { redis_client } from "../lib/redis/redis_client";
 import { processStartechProductUrl } from "../lib/scrapers/startech";
 import { ProductProvider } from "../types/product_type";
 import pLimit from "p-limit";
-import { processAppleGadgetsProductUrl } from "../lib/scrapers/apple_gadgets";
-import { processTechLandProductUrl } from "../lib/scrapers/techland";
-import { processTechMarvelsProductUrl } from "../lib/scrapers/tech_marvels";
+import { processAppleGadgetsProductDetails } from "../lib/scrapers/apple_gadgets";
+import { processTechLandProductDetails } from "../lib/scrapers/techland";
+import { processTechMarvelsProductDetails } from "../lib/scrapers/tech_marvels";
 import { PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
 import { processItemWithTimeout } from "../lib/utils/process_helper";
 import { processUCCProductUrl } from "../lib/scrapers/ucc";
@@ -12,13 +12,21 @@ import { processUCCProductUrl } from "../lib/scrapers/ucc";
 async function processQueue() {
 	const limit = pLimit(PRODUCT_PLIMIT);
 	while (true) {
-		const jobs: { provider: ProductProvider; productUrl: string }[] = [];
+		const jobs: {
+			provider: ProductProvider;
+			productUrl: string;
+			categoryId: number | undefined;
+		}[] = [];
 		const BATCH = parseInt(process.env.PRODUCT_PLIMIT!) || 5;
 		for (let i = 0; i < BATCH; i++) {
 			const job = await redis_client.rpop("pricelens");
 			if (!job) break;
 			jobs.push(
-				JSON.parse(job) as { provider: ProductProvider; productUrl: string },
+				JSON.parse(job) as {
+					provider: ProductProvider;
+					productUrl: string;
+					categoryId: number | undefined;
+				},
 			);
 		}
 		if (jobs.length === 0) break;
@@ -29,23 +37,29 @@ async function processQueue() {
 					try {
 						if (item.provider === ProductProvider.STARTECH) {
 							await processItemWithTimeout(
-								processStartechProductUrl(item.productUrl),
+								processStartechProductUrl(item.productUrl, item.categoryId),
 							);
 						} else if (item.provider === ProductProvider.APPLE_GADGETS) {
 							await processItemWithTimeout(
-								processAppleGadgetsProductUrl(item.productUrl),
+								processAppleGadgetsProductDetails(
+									item.productUrl,
+									item.categoryId,
+								),
 							);
 						} else if (item.provider === ProductProvider.TECHLAND) {
 							await processItemWithTimeout(
-								processTechLandProductUrl(item.productUrl),
+								processTechLandProductDetails(item.productUrl, item.categoryId),
 							);
 						} else if (item.provider === ProductProvider.TECH_MARVELS) {
 							await processItemWithTimeout(
-								processTechMarvelsProductUrl(item.productUrl),
+								processTechMarvelsProductDetails(
+									item.productUrl,
+									item.categoryId,
+								),
 							);
 						} else if (item.provider === ProductProvider.UCC) {
 							await processItemWithTimeout(
-								processUCCProductUrl(item.productUrl),
+								processUCCProductUrl(item.productUrl, item.categoryId),
 							);
 						}
 					} catch (err) {
