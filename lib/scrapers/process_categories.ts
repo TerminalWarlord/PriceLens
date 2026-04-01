@@ -9,8 +9,9 @@ export async function processCategories(
 	navLinks: Set<string>,
 	provider: ProductProvider,
 	cb: (url: string) => Promise<void>,
+	limit?: number,
 ) {
-	const categoryLimit = pLimit(PLIMIT);
+	const categoryLimit = pLimit(limit || PLIMIT);
 	const tasks = Array.from(navLinks).map((navLink) =>
 		categoryLimit(async () => {
 			try {

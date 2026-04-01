@@ -119,6 +119,7 @@ export async function getRyansProductDetails(url: string) {
 			}
 		} catch (err) {
 			consoleError(ProductProvider.RYANS, `Failed at page ${p}: ${err}`);
+			break;
 		}
 		await markPageAsProcessed(pageUrl);
 	}
@@ -153,6 +154,7 @@ export async function scrapeRyansCategories() {
 		navLinks,
 		ProductProvider.RYANS,
 		getRyansProductDetails,
+		1,
 	);
 
 	await page.close();
