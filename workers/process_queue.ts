@@ -1,5 +1,5 @@
 import { redis_client } from "../lib/redis/redis_client";
-import { processStartechProductUrl } from "../lib/scrapers/startech";
+import { processStartechProductDetails } from "../lib/scrapers/startech";
 import { ProductProvider } from "../types/product_type";
 import pLimit from "p-limit";
 import { processAppleGadgetsProductDetails } from "../lib/scrapers/apple_gadgets";
@@ -7,7 +7,7 @@ import { processTechLandProductDetails } from "../lib/scrapers/techland";
 import { processTechMarvelsProductDetails } from "../lib/scrapers/tech_marvels";
 import { PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
 import { processItemWithTimeout } from "../lib/utils/process_helper";
-import { processUCCProductUrl } from "../lib/scrapers/ucc";
+import { processUCCProductDetails } from "../lib/scrapers/ucc";
 
 async function processQueue() {
 	const limit = pLimit(PRODUCT_PLIMIT);
@@ -37,7 +37,7 @@ async function processQueue() {
 					try {
 						if (item.provider === ProductProvider.STARTECH) {
 							await processItemWithTimeout(
-								processStartechProductUrl(item.productUrl, item.categoryId),
+								processStartechProductDetails(item.productUrl, item.categoryId),
 							);
 						} else if (item.provider === ProductProvider.APPLE_GADGETS) {
 							await processItemWithTimeout(
@@ -59,7 +59,7 @@ async function processQueue() {
 							);
 						} else if (item.provider === ProductProvider.UCC) {
 							await processItemWithTimeout(
-								processUCCProductUrl(item.productUrl, item.categoryId),
+								processUCCProductDetails(item.productUrl, item.categoryId),
 							);
 						}
 					} catch (err) {

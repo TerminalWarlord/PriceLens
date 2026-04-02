@@ -38,7 +38,6 @@ export async function processTechMarvelsProductDetails(
 			) * 100;
 		const isOutOfStock = $(".stock.out-of-stock.wd-style-bordered");
 		if (isOutOfStock.length) {
-			consoleError(ProductProvider.TECH_MARVELS, `Stock out ${productUrl}`);
 			await removeProduct(productUrl, ProductProvider.TECH_MARVELS);
 			return;
 		}

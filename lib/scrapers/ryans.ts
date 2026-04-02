@@ -113,7 +113,7 @@ export async function scrapeRyansCategories() {
 		navLinks,
 		ProductProvider.RYANS,
 		getRyansProductDetails,
-		1
+		1,
 	);
 }
 
