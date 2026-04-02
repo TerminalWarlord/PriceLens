@@ -12,6 +12,7 @@ import { isItemAvailableOnStarTech } from "../lib/scrapers/availablity_checker/s
 import { PLIMIT, PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
 import pLimit from "p-limit";
 import { processItemWithTimeout } from "../lib/utils/process_helper";
+import { addItemToQueue } from "../lib/redis/redis_helper";
 
 // Probably not efficient, but for the time being get
 // the products there werent updated in past 48hrs and check their availablity
@@ -35,13 +36,11 @@ const PROVIDER_MAP = {
 async function addCleanUpItemsToQueue() {
 	const BATCH = 1000;
 	let OFFSET = 0;
-	const key = `pricelens:cleanup`;
 	while (true) {
 		const products = await db.execute(sql`
         SELECT id, product_url, updated_at, product_provider
         FROM products
         WHERE updated_at < now() - interval '48 hours'
-        ORDER BY updated_at
         OFFSET ${OFFSET}
         LIMIT ${BATCH};
     `);
@@ -52,13 +51,11 @@ async function addCleanUpItemsToQueue() {
 				const provider = product.product_provider as ProductProvider;
 				const productUrl = product.product_url as string;
 				const updatedAt = product.updated_at;
-				await redis_client?.lpush(
-					key,
-					JSON.stringify({
-						productUrl,
-						provider,
-						updatedAt,
-					}),
+				await addItemToQueue(
+					productUrl,
+					provider,
+					undefined,
+					`pricelens:cleanup`,
 				);
 			}
 		}

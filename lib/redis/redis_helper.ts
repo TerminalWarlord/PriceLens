@@ -48,12 +48,13 @@ export async function addItemToQueue(
 	productUrl: string,
 	provider: ProductProvider,
 	categoryId?: number,
+	key: string = "pricelens_queue",
 ) {
-	const exists = await redis_client.sadd("pricelens_queue:dedupe", productUrl);
+	const exists = await redis_client.sadd(`${key}:dedupe`, productUrl);
 
 	if (exists === 1) {
 		await redis_client.lpush(
-			`pricelens`,
+			key,
 			JSON.stringify({
 				provider,
 				productUrl,
