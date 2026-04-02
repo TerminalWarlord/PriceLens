@@ -94,7 +94,8 @@ async function cleanUpUnavailableProductsFromQueue() {
 					const productUrl = item.productUrl as string;
 					console.log(item);
 					try {
-						await processItemWithTimeout(PROVIDER_MAP[provider](productUrl));
+						const fn = PROVIDER_MAP[provider];
+						await processItemWithTimeout(() => fn(productUrl));
 					} catch (err) {
 						consoleError(provider, `Failed to update ${productUrl}`);
 					}

@@ -22,7 +22,7 @@ export async function processCategories(
 					consoleError(provider, `${navLink} has already been processed`);
 					return;
 				}
-				await processItemWithTimeout(cb(navLink));
+				await processItemWithTimeout(() => cb(navLink));
 				await markCategoryAsProcessed(navLink, provider);
 			} catch (err) {
 				consoleError(provider, `Failed to scrape ${navLink} :${err}`);

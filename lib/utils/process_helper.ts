@@ -1,9 +1,15 @@
-export function processItemWithTimeout(
-	promise: Promise<void>,
-	timeout: number = 40000,
+export async function processItemWithTimeout(
+	fn: () => Promise<void>,
+	timeout: number = 60000,
 ) {
-	const cb = new Promise((_, reject) =>
-		setTimeout(() => reject(new Error("Timed out")), timeout),
+	let timeoutId: NodeJS.Timeout;
+	const cb = new Promise(
+		(_, reject) =>
+			(timeoutId = setTimeout(() => reject(new Error("Timed out")), timeout)),
 	);
-	return Promise.race([promise, cb]);
+	const race = Promise.race([fn(), cb]);
+	race.catch(() => {});
+	return race.finally(() => {
+		clearTimeout(timeoutId);
+	});
 }

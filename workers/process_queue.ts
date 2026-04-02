@@ -9,6 +9,22 @@ import { PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
 import { processItemWithTimeout } from "../lib/utils/process_helper";
 import { processUCCProductDetails } from "../lib/scrapers/ucc";
 
+const PROVIDER_MAP = {
+	[ProductProvider.APPLE_GADGETS]: processAppleGadgetsProductDetails,
+	[ProductProvider.DAZZLE]: async () => {},
+	[ProductProvider.RYANS]: async () => {},
+	[ProductProvider.SKYLANDBD]: async () => {},
+	[ProductProvider.STARTECH]: processStartechProductDetails,
+	[ProductProvider.TECHLAND]: processTechLandProductDetails,
+	[ProductProvider.TECH_MARVELS]: processTechMarvelsProductDetails,
+	[ProductProvider.UCC]: processUCCProductDetails,
+	[ProductProvider.VERTECH]: async () => {},
+	[ProductProvider.COMPUTER_VILLAGE]: async () => {},
+	[ProductProvider.ULTRATECH]: async () => {},
+	[ProductProvider.POTAKAIT]: async () => {},
+	[ProductProvider.VIBEGAMING]: async () => {},
+} as const;
+
 async function processQueue() {
 	const limit = pLimit(PRODUCT_PLIMIT);
 	while (true) {
@@ -35,33 +51,10 @@ async function processQueue() {
 			jobs.map((item) =>
 				limit(async () => {
 					try {
-						if (item.provider === ProductProvider.STARTECH) {
-							await processItemWithTimeout(
-								processStartechProductDetails(item.productUrl, item.categoryId),
-							);
-						} else if (item.provider === ProductProvider.APPLE_GADGETS) {
-							await processItemWithTimeout(
-								processAppleGadgetsProductDetails(
-									item.productUrl,
-									item.categoryId,
-								),
-							);
-						} else if (item.provider === ProductProvider.TECHLAND) {
-							await processItemWithTimeout(
-								processTechLandProductDetails(item.productUrl, item.categoryId),
-							);
-						} else if (item.provider === ProductProvider.TECH_MARVELS) {
-							await processItemWithTimeout(
-								processTechMarvelsProductDetails(
-									item.productUrl,
-									item.categoryId,
-								),
-							);
-						} else if (item.provider === ProductProvider.UCC) {
-							await processItemWithTimeout(
-								processUCCProductDetails(item.productUrl, item.categoryId),
-							);
-						}
+						const fn = PROVIDER_MAP[item.provider];
+						await processItemWithTimeout(() =>
+							fn(item.productUrl, item.categoryId),
+						);
 					} catch (err) {
 						console.error(`Job failed : ${err}`);
 					}
