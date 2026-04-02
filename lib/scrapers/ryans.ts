@@ -1,39 +1,19 @@
 import * as cheerio from "cheerio";
-import { chromium } from "playwright-extra";
-import stealth from "puppeteer-extra-plugin-stealth";
 import { ProductProvider } from "../../types/product_type";
-import { MAX_ITEM_LIMIT, MAX_PAGE_LIMIT } from "./scraper_config";
-import { consoleError, consoleInfo } from "./debugger";
-
+import { CF_PROXY, MAX_ITEM_LIMIT, MAX_PAGE_LIMIT } from "./scraper_config";
+import { consoleError } from "./debugger";
 import { addProduct } from "./add_product";
 import { processCategories } from "./process_categories";
 import { addCategory } from "./add_category";
 import { isPageProcessed, markPageAsProcessed } from "../redis/redis_helper";
-
-chromium.use(stealth());
-const browser = await chromium.launch({
-	headless: true,
-	args: ["--headless=new"],
-});
-
-const context = await browser.newContext({
-	userAgent:
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-	viewport: { width: 1280, height: 800 },
-	locale: "en-BD",
-});
+import { proxyRequest } from "../utils/proxy_request";
+import { getCategoryFromProvider } from "./category_selectors";
 
 async function getRyansCategory(url: string) {
 	try {
-		const page = await context.newPage();
-		await page.goto(url);
-		await page.waitForTimeout(6000);
-		const $ = cheerio.load(await page.content());
-		const categoryName = $("div.card div.card-body span")
-			.eq(2)
-			.find("a")
-			.text()
-			.trim();
+		const r = await proxyRequest(CF_PROXY + url);
+		const $ = cheerio.load(r.data.result);
+		const categoryName = getCategoryFromProvider(ProductProvider.RYANS, $);
 		if (categoryName) {
 			return await addCategory(url, categoryName, ProductProvider.RYANS);
 		}
@@ -47,10 +27,6 @@ async function getRyansCategory(url: string) {
 
 export async function getRyansProductDetails(url: string) {
 	// https://www.ryans.com/category/laptop-all-laptop?limit=5000&sort=D&osp=1&st=0
-	const page = await context.newPage();
-	await page.goto(url);
-	await page.waitForTimeout(6000);
-	// console.log(await page.title());
 	const categoryId = await getRyansCategory(url);
 	for (let p = 1; p < MAX_PAGE_LIMIT; p++) {
 		const pageUrl = `${url}?limit=${MAX_ITEM_LIMIT}&page=${p}&osp=1`;
@@ -62,16 +38,8 @@ export async function getRyansProductDetails(url: string) {
 				);
 				continue;
 			}
-			await page.goto(pageUrl, {
-				waitUntil: "domcontentloaded",
-			});
-
-			// give CF time
-			await page.waitForTimeout(6000);
-
-			consoleInfo(ProductProvider.RYANS, await page.title());
-			const data = await page.content();
-			const $ = cheerio.load(data);
+			const r = await proxyRequest(CF_PROXY + pageUrl);
+			const $ = cheerio.load(r.data.result);
 			const allMenu = $("div.card.h-100");
 			if (!allMenu.length) break;
 			for (const el of allMenu.toArray()) {
@@ -123,21 +91,13 @@ export async function getRyansProductDetails(url: string) {
 		}
 		await markPageAsProcessed(pageUrl);
 	}
-	await page.close();
 }
 
 export async function scrapeRyansCategories() {
-	const page = await context.newPage();
-	await page.goto("https://www.ryans.com/", {
-		waitUntil: "domcontentloaded",
-	});
+	const r = await proxyRequest(CF_PROXY + "https://www.ryans.com/");
 
-	// give CF time
-	await page.waitForTimeout(6000);
-
-	consoleInfo(ProductProvider.RYANS, await page.title());
-	const data = await page.content();
-	const $ = cheerio.load(data);
+	const data = r.data;
+	const $ = cheerio.load(data.result);
 	const allMenu = $("ul.list-unstyled");
 	const navLinks = new Set<string>();
 	for (const el of allMenu.toArray()) {
@@ -149,14 +109,14 @@ export async function scrapeRyansCategories() {
 			break;
 		}
 	}
-
 	await processCategories(
 		navLinks,
 		ProductProvider.RYANS,
 		getRyansProductDetails,
-		1,
 	);
-
-	await page.close();
-	await browser.close();
 }
+
+// (async () => {
+// 	await getRyansProductDetails("https://www.ryans.com/category/laptop-all-laptop");
+// 	// await scrapeRyansCategories();
+// })()

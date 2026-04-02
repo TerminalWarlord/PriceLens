@@ -3,3 +3,7 @@ export const MAX_ITEM_LIMIT = parseInt(process.env.MAX_ITEM_LIMIT!) || 100;
 export const PLIMIT = parseInt(process.env.PLIMIT!) || 2;
 export const PRODUCT_PLIMIT = parseInt(process.env.PRODUCT_PLIMIT!) || 5;
 export const UPDATE_FREQUENCY = 60 * 60 * 24 * 100; // 24hrs in ms (for now)
+// CF_PROXY is a cf bypasser is an external api I have created,
+// since Ryans have blocked all the proxies
+// Keeping it private so that they can't block my requests anymore
+export const CF_PROXY = process.env.CF_PROXY || "http://localhost:3000";

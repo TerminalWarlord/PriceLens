@@ -11,10 +11,11 @@ import {
 import { processCategories } from "./process_categories";
 import { getCategory } from "./add_category";
 import { addProduct } from "./add_product";
+import { removeProduct } from "./availablity_checker/remove_product";
 
 export async function processTechLandProductDetails(
 	productUrl: string,
-	categoryId: number | undefined,
+	categoryId?: number,
 ) {
 	try {
 		consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
@@ -47,10 +48,7 @@ export async function processTechLandProductDetails(
 				.text()
 				.trim() === "In Stock";
 		if (!isInStock) {
-			consoleError(
-				ProductProvider.TECHLAND,
-				`${productUrl} Item is not in stock`,
-			);
+			await removeProduct(productUrl, ProductProvider.TECHLAND);
 			return;
 		}
 		const productPrice =

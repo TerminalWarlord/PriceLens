@@ -14,10 +14,11 @@ import {
 import { addProduct } from "./add_product";
 import { getCategory } from "./add_category";
 import { processCategories } from "./process_categories";
+import { removeProduct } from "./availablity_checker/remove_product";
 
 export async function processTechMarvelsProductDetails(
 	productUrl: string,
-	categoryId: number | undefined,
+	categoryId?: number,
 ) {
 	try {
 		consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${productUrl}`);
@@ -37,27 +38,8 @@ export async function processTechMarvelsProductDetails(
 			) * 100;
 		const isOutOfStock = $(".stock.out-of-stock.wd-style-bordered");
 		if (isOutOfStock.length) {
-			// TODO: remove item
 			consoleError(ProductProvider.TECH_MARVELS, `Stock out ${productUrl}`);
-			try {
-				const [result] = await db
-					.delete(productsTable)
-					.where(
-						and(
-							eq(productsTable.product_url, productUrl),
-							eq(productsTable.product_provider, ProductProvider.TECH_MARVELS),
-						),
-					)
-					.returning({ id: productsTable.id });
-				if (result) {
-					consoleSuccess(
-						ProductProvider.TECH_MARVELS,
-						`Deleted ${result.id} : ${productUrl}`,
-					);
-				}
-			} catch (err) {
-				consoleError(ProductProvider.TECH_MARVELS, `Failed to remove : ${err}`);
-			}
+			await removeProduct(productUrl, ProductProvider.TECH_MARVELS);
 			return;
 		}
 

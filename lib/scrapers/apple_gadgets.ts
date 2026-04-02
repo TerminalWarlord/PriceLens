@@ -11,12 +11,13 @@ import {
 	markPageAsProcessed,
 } from "../redis/redis_helper";
 import { getCategory } from "./add_category";
+import { removeProduct } from "./availablity_checker/remove_product";
 
 const BASE_URL = "https://www.applegadgetsbd.com";
 
 export async function processAppleGadgetsProductDetails(
 	productUrl: string,
-	categoryId: number | undefined,
+	categoryId?: number,
 ) {
 	try {
 		const updatedProductUrl = productUrl.includes("https://")
@@ -43,6 +44,15 @@ export async function processAppleGadgetsProductDetails(
 			productDescription += `${fieldTitle}: ${fieldValue}\n`;
 		}
 		const productPrice = Number(priceMatch?.[1]) * 100;
+		const stockMatch = data.match(
+			/\\"variants\\"[\s\S]*?\\"status\\"\s*:\s*\\"([^\\"]+)\\"/,
+		);
+		const isAvailable = stockMatch?.[1].trim().includes("in-stock");
+		if (!isAvailable) {
+			await removeProduct(productUrl, ProductProvider.APPLE_GADGETS);
+			return;
+		}
+
 		await addProduct({
 			category_id: categoryId,
 			product_description: productDescription.trim(),

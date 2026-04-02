@@ -11,10 +11,11 @@ import {
 import { processCategories } from "./process_categories";
 import { addProduct } from "./add_product";
 import { getCategory } from "./add_category";
+import { removeProduct } from "./availablity_checker/remove_product";
 
-export async function processStartechProductUrl(
+export async function processStartechProductDetails(
 	productUrl: string,
-	categoryId: number | undefined,
+	categoryId?: number,
 ) {
 	try {
 		const r = await proxyRequest(productUrl);
@@ -38,6 +39,17 @@ export async function processStartechProductUrl(
 			productDescription += $(el).text().trim() + "\n";
 		}
 		productDescription = productDescription.trim();
+		const stock = $(
+			"table.product-info-table td.product-info-data.product-status",
+		)
+			.text()
+			.trim()
+			.toLowerCase();
+		const isAvailable = stock.includes("in stock");
+		if (!isAvailable) {
+			await removeProduct(productUrl, ProductProvider.STARTECH);
+			return;
+		}
 		await addProduct({
 			category_id: categoryId,
 			product_description: productDescription.trim(),
@@ -55,7 +67,7 @@ export async function processStartechProductUrl(
 	}
 }
 
-export async function getStartechProductDetails(url: string) {
+export async function getStartechCategoryProducts(url: string) {
 	const categoryId = await getCategory(url, ProductProvider.STARTECH);
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		consoleInfo(
@@ -121,7 +133,7 @@ export async function scrapeStartechCategories() {
 		await processCategories(
 			navLinks,
 			ProductProvider.STARTECH,
-			getStartechProductDetails,
+			getStartechCategoryProducts,
 		);
 	} catch (err) {
 		consoleError(ProductProvider.STARTECH, `Failed to scrape ${err}`);

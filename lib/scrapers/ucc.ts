@@ -11,12 +11,13 @@ import {
 import { addProduct } from "./add_product";
 import { getCategory } from "./add_category";
 import { processCategories } from "./process_categories";
+import { removeProduct } from "./availablity_checker/remove_product";
 
 const BASE_URL = "https://www.ucc.com.bd";
 
-export async function processUCCProductUrl(
+export async function processUCCProductDetails(
 	productUrl: string,
-	categoryId: number | undefined,
+	categoryId?: number,
 ) {
 	consoleInfo(ProductProvider.UCC, `Scraping ${productUrl}`);
 	try {
@@ -42,6 +43,12 @@ export async function processUCCProductUrl(
 			.toArray()) {
 			productDescription += $(el).text().trim() + "\n";
 		}
+		const priceSection = $("li.product-stock").text().trim().toLowerCase();
+		const isAvailable = priceSection.includes("in stock");
+		if (!isAvailable) {
+			await removeProduct(productUrl, ProductProvider.UCC);
+			return;
+		}
 		await addProduct({
 			category_id: categoryId,
 			product_description: productDescription,
@@ -56,7 +63,7 @@ export async function processUCCProductUrl(
 	}
 }
 
-async function getUCCCategoryProducts(url: string) {
+async function getUCCCategoryCategoryProducts(url: string) {
 	const categoryId = await getCategory(url, ProductProvider.UCC);
 	for (let page = 1; page < MAX_PAGE_LIMIT; page++) {
 		try {
@@ -118,7 +125,7 @@ export async function scrapeUCCCategories() {
 		await processCategories(
 			navLinks,
 			ProductProvider.UCC,
-			getUCCCategoryProducts,
+			getUCCCategoryCategoryProducts,
 		);
 	} catch (err) {
 		console.log(err);

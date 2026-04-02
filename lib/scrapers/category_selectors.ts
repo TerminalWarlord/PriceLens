@@ -19,5 +19,7 @@ export function getCategoryFromProvider(
 		return $("nav.woocommerce-breadcrumb span.wd-last").text().trim();
 	} else if (provider === ProductProvider.UCC) {
 		return $("ul.breadcrumb li").last().text().trim();
+	} else if (provider === ProductProvider.RYANS) {
+		return $("div.card div.card-body span").eq(2).find("a").text().trim();
 	}
 }
