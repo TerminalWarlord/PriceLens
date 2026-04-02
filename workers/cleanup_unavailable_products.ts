@@ -64,7 +64,7 @@ async function addCleanUpItemsToQueue() {
 }
 
 async function cleanUpUnavailableProductsFromQueue() {
-	const limit = pLimit(2);
+	const limit = pLimit(PLIMIT);
 	const key = `pricelens:cleanup`;
 	while (true) {
 		const jobs: {
@@ -72,7 +72,7 @@ async function cleanUpUnavailableProductsFromQueue() {
 			provider: ProductProvider;
 			updatedAt: string;
 		}[] = [];
-		const BATCH = 2;
+		const BATCH = PRODUCT_PLIMIT;
 		for (let i = 0; i < BATCH; i++) {
 			const job = await redis_client?.rpop(key);
 			if (!job) break;
@@ -102,6 +102,6 @@ async function cleanUpUnavailableProductsFromQueue() {
 }
 
 (async () => {
-	// await addCleanUpItemsToQueue();
+	await addCleanUpItemsToQueue();
 	await cleanUpUnavailableProductsFromQueue();
 })();
