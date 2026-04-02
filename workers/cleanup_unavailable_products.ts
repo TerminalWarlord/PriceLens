@@ -65,7 +65,7 @@ async function addCleanUpItemsToQueue() {
 }
 
 async function cleanUpUnavailableProductsFromQueue() {
-	const limit = pLimit(PLIMIT);
+	const limit = pLimit(PRODUCT_PLIMIT);
 	const key = `pricelens:cleanup`;
 	while (true) {
 		const jobs: {
@@ -97,7 +97,7 @@ async function cleanUpUnavailableProductsFromQueue() {
 						const fn = PROVIDER_MAP[provider];
 						await processItemWithTimeout(() => fn(productUrl));
 					} catch (err) {
-						consoleError(provider, `Failed to update ${productUrl}`);
+						consoleError(provider, `Failed to update ${productUrl} : ${err}`);
 					}
 				}),
 			),
