@@ -13,6 +13,7 @@ import { PLIMIT, PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
 import pLimit from "p-limit";
 import { processItemWithTimeout } from "../lib/utils/process_helper";
 import { addItemToQueue } from "../lib/redis/redis_helper";
+import { consoleError } from "../lib/scrapers/debugger";
 
 // Probably not efficient, but for the time being get
 // the products there werent updated in past 48hrs and check their availablity
@@ -92,7 +93,11 @@ async function cleanUpUnavailableProductsFromQueue() {
 					const provider = item.provider as ProductProvider;
 					const productUrl = item.productUrl as string;
 					console.log(item);
-					await processItemWithTimeout(PROVIDER_MAP[provider](productUrl));
+					try {
+						await processItemWithTimeout(PROVIDER_MAP[provider](productUrl));
+					} catch (err) {
+						consoleError(provider, `Failed to update ${productUrl}`);
+					}
 				}),
 			),
 		);
