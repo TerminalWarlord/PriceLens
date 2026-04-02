@@ -34,6 +34,7 @@ const PROVIDER_MAP = {
 
 async function addCleanUpItemsToQueue() {
 	const BATCH = 1000;
+	let OFFSET = 0;
 	const key = `pricelens:cleanup`;
 	while (true) {
 		const products = await db.execute(sql`
@@ -41,6 +42,7 @@ async function addCleanUpItemsToQueue() {
         FROM products
         WHERE updated_at < now() - interval '48 hours'
         ORDER BY updated_at
+        OFFSET ${OFFSET}
         LIMIT ${BATCH};
     `);
 		if (!products || products.rowCount === 0) break;
@@ -60,6 +62,7 @@ async function addCleanUpItemsToQueue() {
 				);
 			}
 		}
+		OFFSET += BATCH;
 	}
 }
 
