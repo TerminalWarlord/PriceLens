@@ -1,9 +1,12 @@
 import pLimit from "p-limit";
 import { PLIMIT } from "./scraper_config";
-import type { ProductProvider } from "../../types/product_type";
+import { ProductProvider } from "../../types/product_type";
 import { processItemWithTimeout } from "../utils/process_helper";
 import { consoleError, consoleSuccess } from "./debugger";
-import { isCategoryProcessed } from "../redis/redis_helper";
+import {
+	isCategoryProcessed,
+	markCategoryAsProcessed,
+} from "../redis/redis_helper";
 
 export async function processCategories(
 	navLinks: Set<string>,
@@ -20,6 +23,7 @@ export async function processCategories(
 					return;
 				}
 				await processItemWithTimeout(cb(navLink));
+				await markCategoryAsProcessed(navLink, provider);
 			} catch (err) {
 				consoleError(provider, `Failed to scrape ${navLink} :${err}`);
 			}

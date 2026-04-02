@@ -94,27 +94,30 @@ export async function getRyansProductDetails(url: string) {
 }
 
 export async function scrapeRyansCategories() {
-	const r = await proxyRequest(CF_PROXY + "https://www.ryans.com/");
-
-	const data = r.data;
-	const $ = cheerio.load(data.result);
-	const allMenu = $("ul.list-unstyled");
-	const navLinks = new Set<string>();
-	for (const el of allMenu.toArray()) {
-		const navLink = $(el).children();
-		for (const li of navLink.toArray()) {
-			const item = $(li).find("a").attr("href");
-			if (!item || item === "#") continue;
-			navLinks.add(item);
-			break;
+	try {
+		const r = await proxyRequest(CF_PROXY + "https://www.ryans.com/");
+		const data = r.data;
+		const $ = cheerio.load(data.result);
+		const allMenu = $("ul.list-unstyled");
+		const navLinks = new Set<string>();
+		for (const el of allMenu.toArray()) {
+			const navLink = $(el).children();
+			for (const li of navLink.toArray()) {
+				const item = $(li).find("a").attr("href");
+				if (!item || item === "#") continue;
+				navLinks.add(item);
+				break;
+			}
 		}
+		await processCategories(
+			navLinks,
+			ProductProvider.RYANS,
+			getRyansProductDetails,
+			1,
+		);
+	} catch (err) {
+		consoleError(ProductProvider.RYANS, `Failed to scrape ${err}`);
 	}
-	await processCategories(
-		navLinks,
-		ProductProvider.RYANS,
-		getRyansProductDetails,
-		1,
-	);
 }
 
 // (async () => {

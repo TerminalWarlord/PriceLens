@@ -7,11 +7,19 @@ export async function isCategoryProcessed(
 	provider: ProductProvider,
 ) {
 	const key = `pricelens_queue:categories:${provider}`;
+	return redis_client.get(key);
+}
+
+export async function markCategoryAsProcessed(
+	categoryUrl: string,
+	provider: ProductProvider,
+) {
+	const key = `pricelens_queue:categories:${provider}`;
 	const exists = await redis_client.sadd(key, categoryUrl);
 	if (exists === 1) {
 		const ttl = await redis_client.ttl(key);
 		if (ttl === -1) {
-			await redis_client.expire(key, 3600);
+			await redis_client.expire(key, 60 * 60 * 4);
 		}
 	}
 	return exists === 1 ? false : true;
@@ -39,7 +47,7 @@ export async function markPageAsProcessed(pageUrl: string) {
 export async function addItemToQueue(
 	productUrl: string,
 	provider: ProductProvider,
-	categoryId: number | undefined,
+	categoryId?: number,
 ) {
 	const exists = await redis_client.sadd("pricelens_queue:dedupe", productUrl);
 
