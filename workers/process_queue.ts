@@ -25,7 +25,7 @@ const PROVIDER_MAP = {
 	[ProductProvider.VIBEGAMING]: async () => {},
 } as const;
 
-async function processQueue() {
+export async function processQueue() {
 	const limit = pLimit(PRODUCT_PLIMIT);
 	while (true) {
 		const jobs: {

@@ -6,15 +6,17 @@ import { scrapeTechlandCategories } from "../lib/scrapers/techland";
 import { scrapeUCCCategories } from "../lib/scrapers/ucc";
 import { redis_client } from "../lib/redis/redis_client";
 import { setTtlOnQueue } from "../lib/redis/redis_helper";
+import { processQueue } from "./process_queue";
 
 async function populateQueue() {
-	await setTtlOnQueue(60 * 60 * 6); // lets try 6 hrs for now
 	await scrapeStartechCategories();
 	await scrapeTechlandCategories();
 	await scrapeComputerVillageCategories();
 	await scrapeUCCCategories();
 	await scrapeAppleGadgetsCategories();
 	await scrapeTechMarvelsCategories();
+	await setTtlOnQueue(60 * 60 * 6); // lets try 6 hrs for now
+	await processQueue();
 }
 
 await populateQueue();

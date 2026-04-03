@@ -24,15 +24,12 @@ export async function markCategoryAsProcessed(
 	}
 	return exists === 1 ? false : true;
 }
-export async function setTtlOnQueue(ttl: number = 60 * 60 * 24) {
-	const key = "pricelens_queue:dedupe";
-	if ((await redis_client.ttl(key)) === -1) {
-		await redis_client.expire(key, ttl);
-	}
-
-	if ((await redis_client.ttl(`pricelens`)) === -1) {
-		await redis_client.expire(`pricelens`, ttl);
-	}
+export async function setTtlOnQueue(
+	ttl: number = 60 * 60 * 24,
+	key: string = "pricelens_queue",
+) {
+	await redis_client.expire(key + ":dedupe", ttl);
+	await redis_client.expire(key, ttl);
 }
 export async function isPageProcessed(pageUrl: string) {
 	const key = `pricelens:pages:${generateHash(pageUrl)}`;

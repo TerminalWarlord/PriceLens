@@ -9,10 +9,10 @@ import { isItemAvailableOnSkyLand } from "../lib/scrapers/availablity_checker/sk
 import { isItemAvailableOnTechLand } from "../lib/scrapers/availablity_checker/techland.stock";
 import { isItemAvailableOnTechMarvels } from "../lib/scrapers/availablity_checker/tech_marvels.stock";
 import { isItemAvailableOnStarTech } from "../lib/scrapers/availablity_checker/startech.stock";
-import { PLIMIT, PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
+import { PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
 import pLimit from "p-limit";
 import { processItemWithTimeout } from "../lib/utils/process_helper";
-import { addItemToQueue } from "../lib/redis/redis_helper";
+import { addItemToQueue, setTtlOnQueue } from "../lib/redis/redis_helper";
 import { consoleError } from "../lib/scrapers/debugger";
 
 // Probably not efficient, but for the time being get
@@ -37,9 +37,10 @@ const PROVIDER_MAP = {
 async function addCleanUpItemsToQueue() {
 	const BATCH = 1000;
 	let OFFSET = 0;
+	const key = `pricelens:cleanup`;
 	while (true) {
 		const products = await db.execute(sql`
-        SELECT id, product_url, updated_at, product_provider
+        SELECT id, product_url, product_provider
         FROM products
         WHERE updated_at < now() - interval '48 hours'
         OFFSET ${OFFSET}
@@ -51,17 +52,12 @@ async function addCleanUpItemsToQueue() {
 			for (const product of results) {
 				const provider = product.product_provider as ProductProvider;
 				const productUrl = product.product_url as string;
-				const updatedAt = product.updated_at;
-				await addItemToQueue(
-					productUrl,
-					provider,
-					undefined,
-					`pricelens:cleanup`,
-				);
+				await addItemToQueue(productUrl, provider, undefined, key);
 			}
 		}
 		OFFSET += BATCH;
 	}
+	await setTtlOnQueue(3 * 60 * 60, key);
 }
 
 async function cleanUpUnavailableProductsFromQueue() {
@@ -71,7 +67,6 @@ async function cleanUpUnavailableProductsFromQueue() {
 		const jobs: {
 			productUrl: string;
 			provider: ProductProvider;
-			updatedAt: string;
 		}[] = [];
 		const BATCH = PRODUCT_PLIMIT;
 		for (let i = 0; i < BATCH; i++) {
@@ -81,7 +76,6 @@ async function cleanUpUnavailableProductsFromQueue() {
 				JSON.parse(job) as {
 					productUrl: string;
 					provider: ProductProvider;
-					updatedAt: string;
 				},
 			);
 		}
