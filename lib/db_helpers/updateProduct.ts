@@ -1,9 +1,9 @@
 import { and, eq, lt, sql } from "drizzle-orm";
-import { ProductProvider } from "../../../types/product_type";
-import { db } from "../../db";
-import { consoleSuccess } from "../debugger";
-import { productsTable } from "../../../src/db/schema/products";
-import { productPricesTable } from "../../../src/db/schema/product_prices";
+import type { ProductProvider } from "../../types/product_type";
+import { db } from "../db";
+import { productsTable } from "../../src/db/schema/products";
+import { productPricesTable } from "../../src/db/schema/product_prices";
+import { consoleSuccess } from "../scrapers/debugger";
 
 export async function changeProductLastUpdated(
 	productUrl: string,

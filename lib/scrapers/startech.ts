@@ -9,9 +9,10 @@ import {
 	markPageAsProcessed,
 } from "../redis/redis_helper";
 import { processCategories } from "./process_categories";
-import { addProduct } from "./add_product";
-import { getCategory } from "./add_category";
+import { addProduct } from "../db_helpers/add_product";
+import { getCategory } from "../db_helpers/add_category";
 import { removeProduct } from "./availablity_checker/remove_product";
+import { doesProductExist } from "../db_helpers/product_exists";
 
 export async function processStartechProductDetails(
 	productUrl: string,
@@ -99,11 +100,12 @@ export async function getStartechCategoryProducts(url: string) {
 			return;
 		}
 
-		let processed = 0;
 		for (const productUrl of productUrls) {
+			if (await doesProductExist(productUrl, ProductProvider.STARTECH)) {
+				continue;
+			}
 			try {
 				await addItemToQueue(productUrl, ProductProvider.STARTECH, categoryId);
-				processed += 1;
 			} catch (err) {
 				consoleError(
 					ProductProvider.STARTECH,
@@ -111,10 +113,7 @@ export async function getStartechCategoryProducts(url: string) {
 				);
 			}
 		}
-
-		if (processed === productUrls.length) {
-			await markPageAsProcessed(pageUrl);
-		}
+		await markPageAsProcessed(pageUrl);
 	}
 }
 

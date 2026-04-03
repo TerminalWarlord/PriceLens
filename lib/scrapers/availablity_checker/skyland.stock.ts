@@ -3,7 +3,7 @@ import { proxyRequest } from "../../utils/proxy_request";
 import { CF_PROXY } from "../scraper_config";
 import { ProductProvider } from "../../../types/product_type";
 import { removeProduct } from "./remove_product";
-import { changeProductLastUpdated } from "./updateProduct";
+import { changeProductLastUpdated } from "../../db_helpers/updateProduct";
 
 export async function isItemAvailableOnSkyLand(productUrl: string) {
 	const r = await proxyRequest(productUrl);

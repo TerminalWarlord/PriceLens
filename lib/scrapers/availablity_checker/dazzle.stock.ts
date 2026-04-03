@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { proxyRequest } from "../../utils/proxy_request";
 import { ProductProvider } from "../../../types/product_type";
 import { removeProduct } from "./remove_product";
-import { changeProductLastUpdated } from "./updateProduct";
+import { changeProductLastUpdated } from "../../db_helpers/updateProduct";
 
 export async function isItemAvailableOnDazzle(productUrl: string) {
 	const r = await proxyRequest(productUrl);

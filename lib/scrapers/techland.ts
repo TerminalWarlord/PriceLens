@@ -9,9 +9,10 @@ import {
 	markPageAsProcessed,
 } from "../redis/redis_helper";
 import { processCategories } from "./process_categories";
-import { getCategory } from "./add_category";
-import { addProduct } from "./add_product";
+import { getCategory } from "../db_helpers/add_category";
+import { addProduct } from "../db_helpers/add_product";
 import { removeProduct } from "./availablity_checker/remove_product";
+import { doesProductExist } from "../db_helpers/product_exists";
 
 export async function processTechLandProductDetails(
 	productUrl: string,
@@ -114,15 +115,16 @@ export async function getTechlandCategoryProduct(url: string) {
 				);
 				return;
 			}
-			let processed = 0;
 			for (const productUrl of productUrls) {
+				if (await doesProductExist(productUrl, ProductProvider.TECHLAND)) {
+					continue;
+				}
 				try {
 					await addItemToQueue(
 						productUrl,
 						ProductProvider.TECHLAND,
 						categoryId,
 					);
-					processed += 1;
 				} catch (err) {
 					consoleError(
 						ProductProvider.TECHLAND,
@@ -130,9 +132,7 @@ export async function getTechlandCategoryProduct(url: string) {
 					);
 				}
 			}
-			if (processed === productUrls.length) {
-				await markPageAsProcessed(pageUrl);
-			}
+			await markPageAsProcessed(pageUrl);
 		} catch (err) {
 			consoleError(ProductProvider.TECHLAND, `Failed to scrape: ${err}`);
 		}

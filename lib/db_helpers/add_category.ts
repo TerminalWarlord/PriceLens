@@ -2,10 +2,10 @@ import { and, eq } from "drizzle-orm";
 import { categoriesTable } from "../../src/db/schema/product_categories";
 import { ProductProvider } from "../../types/product_type";
 import { db } from "../db";
-import { consoleError, consoleSuccess } from "./debugger";
+import { consoleError, consoleSuccess } from "../scrapers/debugger";
 import { proxyRequest } from "../utils/proxy_request";
 import * as cheerio from "cheerio";
-import { getCategoryFromProvider } from "./category_selectors";
+import { getCategoryFromProvider } from "../scrapers/category_selectors";
 
 export async function addCategory(
 	slug: string,

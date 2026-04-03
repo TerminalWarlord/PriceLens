@@ -11,10 +11,11 @@ import {
 	isPageProcessed,
 	markPageAsProcessed,
 } from "../redis/redis_helper";
-import { addProduct } from "./add_product";
-import { getCategory } from "./add_category";
+import { addProduct } from "../db_helpers/add_product";
+import { getCategory } from "../db_helpers/add_category";
 import { processCategories } from "./process_categories";
 import { removeProduct } from "./availablity_checker/remove_product";
+import { doesProductExist } from "../db_helpers/product_exists";
 
 export async function processTechMarvelsProductDetails(
 	productUrl: string,
@@ -89,15 +90,16 @@ export async function getTechMarvelsCategoryProducts(url: string) {
 				);
 				return;
 			}
-			let processed = 0;
 			for (const productUrl of productUrls) {
+				if (await doesProductExist(productUrl, ProductProvider.TECH_MARVELS)) {
+					continue;
+				}
 				try {
 					await addItemToQueue(
 						productUrl,
 						ProductProvider.TECH_MARVELS,
 						categoryId,
 					);
-					processed += 1;
 				} catch (err) {
 					consoleError(
 						ProductProvider.TECH_MARVELS,
@@ -105,9 +107,7 @@ export async function getTechMarvelsCategoryProducts(url: string) {
 					);
 				}
 			}
-			if (processed === productUrls.length) {
-				await markPageAsProcessed(pageUrl);
-			}
+			await markPageAsProcessed(pageUrl);
 		} catch (err) {
 			consoleError(
 				ProductProvider.TECH_MARVELS,

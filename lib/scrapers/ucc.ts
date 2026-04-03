@@ -8,8 +8,8 @@ import {
 	isPageProcessed,
 	markPageAsProcessed,
 } from "../redis/redis_helper";
-import { addProduct } from "./add_product";
-import { getCategory } from "./add_category";
+import { addProduct } from "../db_helpers/add_product";
+import { getCategory } from "../db_helpers/add_category";
 import { processCategories } from "./process_categories";
 import { removeProduct } from "./availablity_checker/remove_product";
 

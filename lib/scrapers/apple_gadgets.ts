@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import { Method, proxyRequest } from "../utils/proxy_request";
 import { ProductProvider } from "../../types/product_type";
 import { consoleError, consoleInfo } from "./debugger";
-import { addProduct } from "./add_product";
+import { addProduct } from "../db_helpers/add_product";
 import { processCategories } from "./process_categories";
 import { MAX_PAGE_LIMIT } from "./scraper_config";
 import {
@@ -10,8 +10,9 @@ import {
 	isPageProcessed,
 	markPageAsProcessed,
 } from "../redis/redis_helper";
-import { getCategory } from "./add_category";
+import { getCategory } from "../db_helpers/add_category";
 import { removeProduct } from "./availablity_checker/remove_product";
+import { doesProductExist } from "../db_helpers/product_exists";
 
 const BASE_URL = "https://www.applegadgetsbd.com";
 
@@ -98,15 +99,16 @@ export async function getAppleGadgetsCategoryProducts(url: string) {
 			);
 			return;
 		}
-		let processed = 0;
 		for (const productUrl of productUrls) {
+			if (await doesProductExist(productUrl, ProductProvider.APPLE_GADGETS)) {
+				continue;
+			}
 			try {
 				await addItemToQueue(
 					productUrl,
 					ProductProvider.APPLE_GADGETS,
 					categoryId,
 				);
-				processed += 1;
 			} catch (err) {
 				consoleError(
 					ProductProvider.APPLE_GADGETS,
@@ -114,9 +116,7 @@ export async function getAppleGadgetsCategoryProducts(url: string) {
 				);
 			}
 		}
-		if (processed === productUrls.length) {
-			await markPageAsProcessed(pageUrl);
-		}
+		await markPageAsProcessed(pageUrl);
 	}
 }
 

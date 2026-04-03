@@ -2,16 +2,17 @@ import * as cheerio from "cheerio";
 import { ProductProvider } from "../../types/product_type";
 import { CF_PROXY, MAX_ITEM_LIMIT, MAX_PAGE_LIMIT } from "./scraper_config";
 import { consoleError } from "./debugger";
-import { addProduct } from "./add_product";
+import { addProduct } from "../db_helpers/add_product";
 import { processCategories } from "./process_categories";
-import { addCategory } from "./add_category";
+import { addCategory } from "../db_helpers/add_category";
 import { isPageProcessed, markPageAsProcessed } from "../redis/redis_helper";
-import { proxyRequest } from "../utils/proxy_request";
+import { Method, proxyRequest } from "../utils/proxy_request";
 import { getCategoryFromProvider } from "./category_selectors";
+import { doesProductExist } from "../db_helpers/product_exists";
 
 async function getRyansCategory(url: string) {
 	try {
-		const r = await proxyRequest(CF_PROXY + url);
+		const r = await proxyRequest(CF_PROXY + url, Method.GET, 50000);
 		const $ = cheerio.load(r.data.result);
 		const categoryName = getCategoryFromProvider(ProductProvider.RYANS, $);
 		if (categoryName) {
@@ -45,6 +46,10 @@ export async function getRyansProductDetails(url: string) {
 			for (const el of allMenu.toArray()) {
 				try {
 					const productUrl = $(el).find("div.image-box > a ").attr("href");
+					if (!productUrl) continue;
+					if (await doesProductExist(productUrl, ProductProvider.RYANS)) {
+						continue;
+					}
 					const productImage = $(el)
 						.find("div.image-box > a > img")
 						.attr("src")

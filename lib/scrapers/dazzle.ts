@@ -3,9 +3,10 @@ import { consoleError, consoleInfo, consoleLogProduct } from "./debugger";
 import { ProductProvider } from "../../types/product_type";
 import { MAX_PAGE_LIMIT } from "./scraper_config";
 import { isPageProcessed, markPageAsProcessed } from "../redis/redis_helper";
-import { addProduct } from "./add_product";
-import { addCategory } from "./add_category";
+import { addProduct } from "../db_helpers/add_product";
+import { addCategory } from "../db_helpers/add_category";
 import { processCategories } from "./process_categories";
+import { doesProductExist } from "../db_helpers/product_exists";
 
 interface DazzleProduct {
 	name: string;
@@ -68,6 +69,10 @@ export async function processDazzleCaetgoryProducts(slugPath: string) {
 			console.log(products[0].name);
 			for (const product of products) {
 				const productUrl = "https://dazzle.com.bd/product/" + product.slug;
+				if (!productUrl) continue;
+				if (await doesProductExist(productUrl, ProductProvider.DAZZLE)) {
+					continue;
+				}
 				try {
 					const productName = product.name;
 					const productPrice = Number(product?.price?.price) * 100;
@@ -80,12 +85,6 @@ export async function processDazzleCaetgoryProducts(slugPath: string) {
 						}
 					}
 					productDescription = productDescription.trim();
-					consoleLogProduct(ProductProvider.DAZZLE, {
-						name: productName,
-						description: productDescription,
-						price: productPrice,
-						image: productImage,
-					});
 					if (!isAvailable) {
 						consoleError(
 							ProductProvider.DAZZLE,

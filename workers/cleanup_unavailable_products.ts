@@ -12,7 +12,11 @@ import { isItemAvailableOnStarTech } from "../lib/scrapers/availablity_checker/s
 import { PRODUCT_PLIMIT } from "../lib/scrapers/scraper_config";
 import pLimit from "p-limit";
 import { processItemWithTimeout } from "../lib/utils/process_helper";
-import { addItemToQueue, setTtlOnQueue } from "../lib/redis/redis_helper";
+import {
+	addItemToQueue,
+	flushQueueAndSet,
+	setTtlOnQueue,
+} from "../lib/redis/redis_helper";
 import { consoleError } from "../lib/scrapers/debugger";
 
 // Probably not efficient, but for the time being get
@@ -35,9 +39,10 @@ const PROVIDER_MAP = {
 } as const;
 
 async function addCleanUpItemsToQueue() {
+	const key = `pricelens:cleanup`;
+	await flushQueueAndSet(key);
 	const BATCH = 1000;
 	let OFFSET = 0;
-	const key = `pricelens:cleanup`;
 	while (true) {
 		const products = await db.execute(sql`
         SELECT id, product_url, product_provider
@@ -93,7 +98,6 @@ async function cleanUpUnavailableProductsFromQueue() {
 					} catch (err) {
 						consoleError(provider, `Failed to update ${productUrl} : ${err}`);
 					}
-					await redis_client?.srem(key + ":dedupe", productUrl);
 				}),
 			),
 		);

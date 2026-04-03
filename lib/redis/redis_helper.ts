@@ -63,6 +63,7 @@ export async function addItemToQueue(
 	}
 }
 
-export async function flushSet() {
-	await redis_client.del("pricelens_queue:dedupe");
+export async function flushQueueAndSet(key: string = "pricelens_queue") {
+	await redis_client.del(`${key}`);
+	await redis_client.del(`${key}:dedupe`);
 }

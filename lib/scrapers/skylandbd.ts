@@ -2,11 +2,12 @@ import * as cheerio from "cheerio";
 import { Method, proxyRequest } from "../utils/proxy_request";
 import { consoleError, consoleInfo } from "./debugger";
 import { ProductProvider } from "../../types/product_type";
-import { addProduct } from "./add_product";
+import { addProduct } from "../db_helpers/add_product";
 import { processCategories } from "./process_categories";
 import { isPageProcessed, markPageAsProcessed } from "../redis/redis_helper";
 import { MAX_PAGE_LIMIT } from "./scraper_config";
-import { getCategory } from "./add_category";
+import { getCategory } from "../db_helpers/add_category";
+import { doesProductExist } from "../db_helpers/product_exists";
 
 async function processSkylandProduct(url: string) {
 	const categoryId = await getCategory(url, ProductProvider.SKYLANDBD);
@@ -37,6 +38,10 @@ async function processSkylandProduct(url: string) {
 				try {
 					const productName = $(el).find("div.name a").attr("title")?.trim();
 					const productUrl = $(el).find("a").attr("href")?.trim();
+					if (!productUrl) continue;
+					if (await doesProductExist(productUrl, ProductProvider.SKYLANDBD)) {
+						continue;
+					}
 					let productImage = $(el).find("div.image img").eq(0).attr("src");
 					if (!productImage?.startsWith("https")) {
 						productImage = "https://www.skyland.com.bd/" + productImage;

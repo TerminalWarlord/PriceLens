@@ -5,8 +5,9 @@ import { ProductProvider } from "../../types/product_type";
 import { consoleError } from "./debugger";
 import { isPageProcessed, markPageAsProcessed } from "../redis/redis_helper";
 import { processCategories } from "./process_categories";
-import { addProduct } from "./add_product";
-import { getCategory } from "./add_category";
+import { addProduct } from "../db_helpers/add_product";
+import { getCategory } from "../db_helpers/add_category";
+import { doesProductExist } from "../db_helpers/product_exists";
 
 export async function getComputerVillageCategoryProducts(url: string) {
 	const categoryId = await getCategory(url, ProductProvider.COMPUTER_VILLAGE);
@@ -39,6 +40,12 @@ export async function getComputerVillageCategoryProducts(url: string) {
 			try {
 				const productName = $(el).find(".caption .name").text();
 				const productUrl = $(el).find(".caption .name a").attr("href");
+				if (!productUrl) continue;
+				if (
+					await doesProductExist(productUrl, ProductProvider.COMPUTER_VILLAGE)
+				) {
+					continue;
+				}
 				const productPrice =
 					Number(
 						$(el)

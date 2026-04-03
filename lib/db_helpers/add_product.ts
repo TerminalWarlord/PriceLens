@@ -4,9 +4,13 @@ import { uploadImage } from "../r2/upload_image";
 import { db } from "../../src";
 import { and, eq } from "drizzle-orm";
 import { productPricesTable } from "../../src/db/schema/product_prices";
-import { consoleError, consoleInfo, consoleSuccess } from "./debugger";
+import {
+	consoleError,
+	consoleInfo,
+	consoleSuccess,
+} from "../scrapers/debugger";
 import { productCategoriesTable } from "../../src/db/schema/product_categories";
-import { UPDATE_FREQUENCY } from "./scraper_config";
+import { UPDATE_FREQUENCY } from "../scrapers/scraper_config";
 
 type CustomProduct = {
 	category_id: number | undefined;
