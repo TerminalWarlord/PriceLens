@@ -65,3 +65,5 @@ export async function processQueue() {
 		);
 	}
 }
+await processQueue();
+await redis_client.quit();
