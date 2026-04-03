@@ -33,9 +33,11 @@ export async function processQueue() {
 			productUrl: string;
 			categoryId: number | undefined;
 		}[] = [];
+
 		const BATCH = parseInt(process.env.PRODUCT_PLIMIT!) || 5;
 		for (let i = 0; i < BATCH; i++) {
-			const job = await redis_client.rpop("pricelens");
+			const job = await redis_client.rpop("pricelens_queue");
+			console.log(job);
 			if (!job) break;
 			jobs.push(
 				JSON.parse(job) as {
@@ -59,11 +61,9 @@ export async function processQueue() {
 					} catch (err) {
 						console.error(`Job failed : ${err}`);
 					}
-					await redis_client.srem("pricelens:dedupe", item.productUrl);
+					await redis_client.srem("pricelens_queue:dedupe", item.productUrl);
 				}),
 			),
 		);
 	}
 }
-await processQueue();
-await redis_client.quit();
