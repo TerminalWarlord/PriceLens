@@ -48,7 +48,9 @@ export async function processAppleGadgetsProductDetails(
 		const stockMatch = data.match(
 			/\\"variants\\"[\s\S]*?\\"status\\"\s*:\s*\\"([^\\"]+)\\"/,
 		);
-		const isAvailable = stockMatch?.[1].trim().includes("in-stock");
+		const isAvailable =
+			stockMatch?.[1].trim().includes("in-stock") ||
+			stockMatch?.[1].trim().includes("online-order");
 		if (!isAvailable) {
 			await removeProduct(productUrl, ProductProvider.APPLE_GADGETS);
 			return;
