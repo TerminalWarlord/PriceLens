@@ -52,12 +52,14 @@ export async function processQueue() {
 				limit(async () => {
 					try {
 						const fn = PROVIDER_MAP[item.provider];
-						await processItemWithTimeout(() =>
-							fn(item.productUrl, item.categoryId),
+						await processItemWithTimeout(
+							() => fn(item.productUrl, item.categoryId),
+							150000,
 						);
 					} catch (err) {
 						console.error(`Job failed : ${err}`);
 					}
+					await redis_client.srem("pricelens:dedupe", item.productUrl);
 				}),
 			),
 		);

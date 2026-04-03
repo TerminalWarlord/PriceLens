@@ -89,10 +89,11 @@ async function cleanUpUnavailableProductsFromQueue() {
 					console.log(item);
 					try {
 						const fn = PROVIDER_MAP[provider];
-						await processItemWithTimeout(() => fn(productUrl));
+						await processItemWithTimeout(() => fn(productUrl), 200000);
 					} catch (err) {
 						consoleError(provider, `Failed to update ${productUrl} : ${err}`);
 					}
+					await redis_client?.srem(key + ":dedupe", productUrl);
 				}),
 			),
 		);
