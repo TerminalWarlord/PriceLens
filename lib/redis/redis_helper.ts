@@ -7,7 +7,7 @@ export async function isCategoryProcessed(
 	provider: ProductProvider,
 ) {
 	const key = `pricelens_queue:categories:${provider}`;
-	return redis_client.get(key);
+	return redis_client.sismember(key, categoryUrl);
 }
 
 export async function markCategoryAsProcessed(
