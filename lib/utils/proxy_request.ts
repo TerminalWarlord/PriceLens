@@ -11,7 +11,7 @@ export enum Method {
 export async function proxyRequest(
 	url: string,
 	method: Method = Method.GET,
-	timeout: number = 15000,
+	timeout: number = 40000,
 ) {
 	const controller = new AbortController();
 	const timeoutId = setTimeout(() => controller.abort(), timeout);

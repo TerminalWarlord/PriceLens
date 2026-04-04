@@ -17,8 +17,7 @@ async function populateQueue() {
 	await scrapeAppleGadgetsCategories();
 	await scrapeTechMarvelsCategories();
 	await setTtlOnQueue(60 * 60 * 6); // lets try 6 hrs for now
-	await processQueue();
-	await redis_client.quit();
 }
 
 await populateQueue();
+await redis_client.quit();

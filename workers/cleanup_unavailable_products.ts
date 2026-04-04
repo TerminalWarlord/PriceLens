@@ -18,6 +18,7 @@ import {
 	setTtlOnQueue,
 } from "../lib/redis/redis_helper";
 import { consoleError } from "../lib/scrapers/debugger";
+import { isItemAvailableOnComputerVillage } from "../lib/scrapers/availablity_checker/computer_village.stock";
 
 // Probably not efficient, but for the time being get
 // the products there werent updated in past 48hrs and check their availablity
@@ -32,7 +33,7 @@ const PROVIDER_MAP = {
 	[ProductProvider.TECH_MARVELS]: isItemAvailableOnTechMarvels,
 	[ProductProvider.UCC]: isItemAvailableOnUCC,
 	[ProductProvider.VERTECH]: async () => {},
-	[ProductProvider.COMPUTER_VILLAGE]: async () => {},
+	[ProductProvider.COMPUTER_VILLAGE]: isItemAvailableOnComputerVillage,
 	[ProductProvider.ULTRATECH]: async () => {},
 	[ProductProvider.POTAKAIT]: async () => {},
 	[ProductProvider.VIBEGAMING]: async () => {},
@@ -101,8 +102,8 @@ async function cleanUpUnavailableProductsFromQueue() {
 				}),
 			),
 		);
-		console.log("Complete");
 	}
+	console.log("Complete");
 	await redis_client?.quit();
 }
 

@@ -13,6 +13,9 @@ import { doesProductExist } from "../db_helpers/product_exists";
 async function getRyansCategory(url: string) {
 	try {
 		const r = await proxyRequest(CF_PROXY + url, Method.GET, 50000);
+		if (r.status !== 200 || r.data.error) {
+			throw new Error("Failed to get category");
+		}
 		const $ = cheerio.load(r.data.result);
 		const categoryName = getCategoryFromProvider(ProductProvider.RYANS, $);
 		if (categoryName) {
@@ -40,6 +43,9 @@ export async function getRyansProductDetails(url: string) {
 				continue;
 			}
 			const r = await proxyRequest(CF_PROXY + pageUrl);
+			if (r.status !== 200 || r.data.error) {
+				throw new Error(`Failed to fetch ${pageUrl}`);
+			}
 			const $ = cheerio.load(r.data.result);
 			const allMenu = $("div.card.h-100");
 			if (!allMenu.length) break;
@@ -101,6 +107,9 @@ export async function getRyansProductDetails(url: string) {
 export async function scrapeRyansCategories() {
 	try {
 		const r = await proxyRequest(CF_PROXY + "https://www.ryans.com/");
+		if (r.status !== 200 || r.data.error) {
+			throw new Error(`Failed to fetch home page`);
+		}
 		const data = r.data;
 		const $ = cheerio.load(data.result);
 		const allMenu = $("ul.list-unstyled");

@@ -7,6 +7,9 @@ import { changeProductLastUpdated } from "../../db_helpers/updateProduct";
 
 export async function isItemAvailableOnRyans(productUrl: string) {
 	const r = await proxyRequest(CF_PROXY + productUrl, Method.GET, 100000);
+	if (r.status !== 200 || r.data.error) {
+		throw new Error("Failed to get product");
+	}
 	const $ = cheerio.load(r.data.result);
 	const priceSection = $("div.price-block").text().trim().toLowerCase();
 	const isAvailable =
