@@ -110,7 +110,7 @@ export const getSearchController = async (c: Context) => {
 					return {
 						...product,
 						product_price: product.product_price.toString(),
-						product_change: priceChange.toString(),
+						price_change: priceChange.toString(),
 					};
 				}),
 			),
