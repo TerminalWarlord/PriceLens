@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { getSearchController } from "./controllers/search.controller";
 import { cors } from "hono/cors";
 import { rateLimiter } from "./middlewares/rate_limiter";
+import { getPriceGraph } from "./controllers/get_price_graph.controller";
 
 config();
 
@@ -16,6 +17,7 @@ app.use(
 
 app.get("/", rateLimiter, (c) => c.text("Hello!"));
 app.get("/search", rateLimiter, getSearchController);
+app.get("/insights", rateLimiter, getPriceGraph);
 
 Bun.serve({
 	port: process.env.PORT,

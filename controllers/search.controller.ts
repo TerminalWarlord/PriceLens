@@ -5,10 +5,11 @@ import { signDownloadUrl } from "../lib/r2/sign_download_image";
 import { ProductProvider, SortBy, type Product } from "../types/product_type";
 import { redis_client } from "../lib/redis/redis_client";
 import { generateHash } from "../lib/utils/hash_key";
+import { get24hrsChange } from "../lib/utils/get_24hrs_change";
 
 export const getSearchController = async (c: Context) => {
 	const schema = z.object({
-		limit: z.coerce.number().min(1).max(20).default(20),
+		limit: z.coerce.number().min(1).max(20).default(10),
 		offset: z.coerce.number().min(0).default(0),
 		query: z.string().optional(),
 		sortBy: z.enum(SortBy).default(SortBy.RELEVANCE),
@@ -64,13 +65,16 @@ export const getSearchController = async (c: Context) => {
 		};
 		return c.json({
 			...data,
-			products: data.products.map((item) => {
-				const productImage = signDownloadUrl(item.product_image);
-				return {
-					...item,
-					product_image: productImage,
-				};
-			}),
+			products: await Promise.all(
+				data.products.map(async (item) => {
+					const productImage = signDownloadUrl(item.product_image);
+					return {
+						...item,
+						product_price: item.product_price.toString(),
+						product_image: productImage,
+					};
+				}),
+			),
 		});
 	}
 	const filters = [];
@@ -100,16 +104,28 @@ export const getSearchController = async (c: Context) => {
 		JSON.stringify({
 			totalResults: results.estimatedTotalHits,
 			hasNextPage: results.hits.length > limit,
-			products: results.hits.slice(0, limit),
+			products: await Promise.all(
+				results.hits.slice(0, limit).map(async (product) => {
+					const priceChange = await get24hrsChange(product.id);
+					return {
+						...product,
+						product_price: product.product_price.toString(),
+						product_change: priceChange.toString(),
+					};
+				}),
+			),
 		}),
 		"EX",
 		300,
 	);
 	const hits = await Promise.all(
-		results.hits.map((item) => {
+		results.hits.map(async (item) => {
 			const productImage = signDownloadUrl(item.product_image);
+			const priceChange = await get24hrsChange(item.id);
 			return {
 				...item,
+				product_price: item.product_price.toString(),
+				price_change: priceChange.toString(),
 				product_image: productImage,
 			};
 		}),
