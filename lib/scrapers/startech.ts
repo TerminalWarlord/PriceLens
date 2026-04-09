@@ -21,6 +21,9 @@ export async function processStartechProductDetails(
 	try {
 		const r = await proxyRequest(productUrl);
 		const data = r.data;
+		if (r.status !== 200) {
+			throw new Error("Failed to get product");
+		}
 		const $ = cheerio.load(data);
 		const productName = $("h1.product-name").text().trim();
 		const productPrice =
@@ -82,7 +85,7 @@ export async function getStartechCategoryProducts(url: string) {
 			continue;
 		}
 		const r = await proxyRequest(pageUrl);
-		const data = await r.data;
+		const data = r.data;
 		const $ = cheerio.load(data);
 		const items = $(".container").find(".p-item");
 
@@ -121,7 +124,7 @@ export async function scrapeStartechCategories() {
 	try {
 		const url = "https://www.startech.com.bd/";
 		const r = await proxyRequest(url, Method.GET);
-		const data = await r.data;
+		const data = r.data;
 		const $ = cheerio.load(data);
 		const navLinks = new Set<string>();
 		for (const el of $("a.nav-link").toArray()) {

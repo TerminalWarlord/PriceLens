@@ -24,7 +24,10 @@ export async function processTechMarvelsProductDetails(
 	try {
 		consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${productUrl}`);
 		const r = await proxyRequest(productUrl);
-		const $ = cheerio.load(await r.data);
+		if (r.status !== 200) {
+			throw new Error("Failed to get product");
+		}
+		const $ = cheerio.load(r.data);
 		const productName = $("h1.product_title").text().trim();
 		const productImage = $("div.wd-carousel-item img").attr("src");
 		let productDescription = "";
@@ -76,7 +79,7 @@ export async function getTechMarvelsCategoryProducts(url: string) {
 			consoleInfo(ProductProvider.TECH_MARVELS, `Scraping : ${pageUrl}`);
 			const r = await proxyRequest(pageUrl);
 			if (r.status >= 400) break;
-			const $ = cheerio.load(await r.data);
+			const $ = cheerio.load(r.data);
 			const productUrls = [];
 			for (const el of $(".product-wrapper").toArray()) {
 				const productUrl = $(el).find("a").attr("href");
@@ -120,7 +123,7 @@ export async function getTechMarvelsCategoryProducts(url: string) {
 export async function scrapeTechMarvelsCategories() {
 	try {
 		const r = await proxyRequest("https://techmarvels.com.bd/");
-		const $ = cheerio.load(await r.data);
+		const $ = cheerio.load(r.data);
 		const navLinks = new Set<string>();
 		for (const el of $("#menu-sticky-navigation-mega-electronics")
 			.children()

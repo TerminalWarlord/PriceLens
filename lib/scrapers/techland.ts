@@ -22,6 +22,9 @@ export async function processTechLandProductDetails(
 		consoleInfo(ProductProvider.TECHLAND, `Scraping: ${productUrl}`);
 		const r = await proxyRequest(productUrl);
 		const $ = cheerio.load(r.data);
+		if (r.status !== 200) {
+			throw new Error("Failed to get product");
+		}
 		consoleInfo(
 			ProductProvider.TECHLAND,
 			`Getting product info: ${productUrl}`,

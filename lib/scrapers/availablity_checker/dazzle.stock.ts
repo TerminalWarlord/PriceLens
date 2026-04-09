@@ -6,6 +6,9 @@ import { changeProductLastUpdated } from "../../db_helpers/updateProduct";
 
 export async function isItemAvailableOnDazzle(productUrl: string) {
 	const r = await proxyRequest(productUrl);
+	if (r.status !== 200) {
+		throw new Error("Failed to get product");
+	}
 	const $ = cheerio.load(r.data);
 	const priceSection = $("div.normal-case").eq(0).text().trim().toLowerCase();
 	const isAvailable = priceSection.includes("in stock");

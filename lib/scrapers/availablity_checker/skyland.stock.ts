@@ -6,6 +6,9 @@ import { changeProductLastUpdated } from "../../db_helpers/updateProduct";
 
 export async function isItemAvailableOnSkyLand(productUrl: string) {
 	const r = await proxyRequest(productUrl);
+	if (r.status !== 200) {
+		throw new Error("Failed to get product");
+	}
 	const $ = cheerio.load(r.data);
 	const priceSection = $("div#product ul.product-info-list")
 		.text()

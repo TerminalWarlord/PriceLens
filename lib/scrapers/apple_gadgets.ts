@@ -29,7 +29,10 @@ export async function processAppleGadgetsProductDetails(
 			`Scraping: ${updatedProductUrl}`,
 		);
 		const r = await proxyRequest(updatedProductUrl);
-		const data = await r.data;
+		if (r.status !== 200) {
+			throw new Error("Failed to get product");
+		}
+		const data = r.data;
 		const $ = cheerio.load(data);
 		const productImage = $('meta[property="og:image"]')
 			.attr("content")
@@ -86,7 +89,7 @@ export async function getAppleGadgetsCategoryProducts(url: string) {
 		}
 		const r = await proxyRequest(pageUrl, Method.GET, 40000);
 		if (r.status >= 400) break;
-		const $ = cheerio.load(await r.data);
+		const $ = cheerio.load(r.data);
 		const productUrls = [];
 		for (const el of $("article").toArray()) {
 			const productUrl = $(el).find("a").first().attr("href");
@@ -125,7 +128,7 @@ export async function getAppleGadgetsCategoryProducts(url: string) {
 export async function scrapeAppleGadgetsCategories() {
 	try {
 		const r = await proxyRequest("https://www.applegadgetsbd.com/");
-		const $ = cheerio.load(await r.data);
+		const $ = cheerio.load(r.data);
 		const navLinks = new Set<string>();
 		for (const el of $("a").toArray()) {
 			const navLink = BASE_URL + $(el).attr("href");
